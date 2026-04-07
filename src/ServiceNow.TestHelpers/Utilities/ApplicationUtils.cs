@@ -32,10 +32,14 @@ public static class ApplicationUtils
         string? commandLineArgs = null)
     {
         var appCapabilities = new AppiumOptions();
-        var appPath = string.IsNullOrEmpty(commandLineArgs) ? proExePath : $"{proExePath} {commandLineArgs}";
-        appCapabilities.AddAdditionalCapability("app", appPath);
+        appCapabilities.AddAdditionalCapability("app", proExePath);
         appCapabilities.AddAdditionalCapability("deviceName", "WindowsPC");
         appCapabilities.AddAdditionalCapability("ms:waitForAppLaunch", "30");
+
+        if (!string.IsNullOrEmpty(commandLineArgs))
+        {
+            appCapabilities.AddAdditionalCapability("appArguments", commandLineArgs);
+        }
 
         var driver = new WindowsDriver<AppiumWebElement>(
             new Uri(winAppDriverUrl),
