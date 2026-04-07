@@ -95,6 +95,12 @@ public class ServiceNowTestBase : ServiceNowTestClassBase
     /// <summary>
     /// Launches ArcGIS Pro with an optional project file (.aprx) and returns the
     /// <see cref="Application"/> POM.
+    ///
+    /// <para>ArcGIS Pro displays a splash screen on launch. WinAppDriver attaches its
+    /// initial session to the splash screen window, which closes before the main window
+    /// appears. To get a stable session we launch Pro, wait for initialization, then
+    /// re-attach via a root desktop session that locates the actual main window by
+    /// its <c>ArcGISProMainWindow</c> AutomationId.</para>
     /// </summary>
     /// <param name="projectPath">
     /// Optional full path to a .aprx project file. If null, Pro opens to the Start Page.
@@ -102,7 +108,9 @@ public class ServiceNowTestBase : ServiceNowTestClassBase
     /// <returns>An <see cref="Application"/> POM wrapping the launched Pro instance.</returns>
     protected Application StartProWithProject(string? projectPath = null)
     {
-        Driver = ApplicationUtils.StartApplicationWAD(
+        // Launch ArcGIS Pro — the session returned here may be orphaned once the
+        // splash screen closes, so we intentionally discard it after launch.
+        var launchSession = ApplicationUtils.StartApplicationWAD(
             proExePath: ArcGISProPath,
             winAppDriverUrl: WinAppDriverUrl,
             commandLineArgs: projectPath);
@@ -110,6 +118,13 @@ public class ServiceNowTestBase : ServiceNowTestClassBase
         // ArcGIS Pro takes significant time to initialize
         TestContext?.WriteLine($"Waiting {StartupWaitSeconds}s for ArcGIS Pro to initialize...");
         WaitingUtils.Wait(StartupWaitSeconds * 1000);
+
+        // Dispose the launch session — it was attached to the splash screen
+        try { launchSession.Quit(); } catch { /* session may already be invalid */ }
+
+        // Re-attach via root desktop session to get a stable handle on the main window
+        TestContext?.WriteLine("Re-attaching to ArcGIS Pro main window via desktop session...");
+        Driver = ApplicationUtils.GetExistingDesktopSession(WinAppDriverUrl);
 
         Application = new Application(Driver);
         return Application;

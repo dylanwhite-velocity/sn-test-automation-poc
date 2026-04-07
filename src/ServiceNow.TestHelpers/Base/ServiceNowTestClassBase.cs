@@ -30,7 +30,7 @@ public class ServiceNowTestClassBase
     {
         if (TestContext == null) return;
 
-        var testClassName = TestContext.FullyQualifiedTestName?.Split('.').LastOrDefault() ?? "Unknown";
+        var testClassName = TestContext.FullyQualifiedTestClassName?.Split('.').LastOrDefault() ?? "Unknown";
         var logFileName = $"{testClassName}_{TestContext.TestName}.log";
         var logDir = TestContext.TestResultsDirectory ?? ".";
 
@@ -86,7 +86,7 @@ public class ServiceNowTestClassBase
     {
         if (TestContext == null) return;
 
-        var screenshotName = $"{TestContext.FullyQualifiedTestName?.Replace('.', '_')}_{TestContext.TestName}_Failure.png";
+        var screenshotName = $"{TestContext.FullyQualifiedTestClassName?.Replace('.', '_')}_{TestContext.TestName}_Failure.png";
         var screenshotDir = TestContext.TestResultsDirectory ?? ".";
         var screenshotPath = Path.Combine(screenshotDir, screenshotName);
 

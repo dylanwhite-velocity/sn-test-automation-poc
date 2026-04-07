@@ -478,15 +478,4 @@ The agent runs environment diagnostics, reads existing code, creates POM classes
 - [ArcGIS Pro Python Toolbox](https://pro.arcgis.com/en/pro-app/latest/arcpy/geoprocessing_and_python/a-quick-tour-of-creating-tools-in-python.htm)
 - [Esri CUIT Repo (internal)](https://devtopia.esri.com/ArcGISPro/cuit/)
 
----
-
-## Changelog
-
-> Keep this section up to date as the project evolves. Newest entries at the top.
-
-| Date | Change |
-|---|---|
-| 2026-04-07 | Migrate to C#/MSTest/.NET 8, CUIT-aligned architecture, rewrite README |
-| 2026-04-07 | Archive Java POC to backup branch (`backup/java-poc-original`) |
-| 2026-04-07 | Initial POC scaffold (Java/JUnit/Maven — superseded) |
 

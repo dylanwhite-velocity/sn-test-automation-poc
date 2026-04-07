@@ -125,6 +125,30 @@ public class TestEnvironment
 
 WinAppDriver is started/stopped **programmatically** — you do not need to manually launch it before running tests.
 
+### WinAppDriver Splash Screen Workaround
+
+> **Critical:** ArcGIS Pro displays a splash screen on launch. WinAppDriver attaches its initial session to the splash screen window, which closes before the main window appears — orphaning the session. All subsequent `FindElement` calls return 404.
+
+**Solution (implemented in `ServiceNowTestBase.StartProWithProject()`):**
+
+1. Launch ArcGIS Pro via `ApplicationUtils.StartApplicationWAD()` — this gets a session, but it may be scoped to the splash screen
+2. Wait for Pro to initialize (`StartupWaitSeconds`)
+3. **Discard** the launch session (`launchSession.Quit()`)
+4. **Re-attach** via `ApplicationUtils.GetExistingDesktopSession()` — this creates a root desktop session, finds the actual `ArcGISProMainWindow` by AutomationId, and creates a new session attached to its window handle
+
+```csharp
+// Launch Pro (session may be orphaned after splash screen closes)
+var launchSession = ApplicationUtils.StartApplicationWAD(...);
+WaitingUtils.Wait(StartupWaitSeconds * 1000);
+
+// Discard orphaned session, re-attach via desktop
+try { launchSession.Quit(); } catch { }
+Driver = ApplicationUtils.GetExistingDesktopSession(WinAppDriverUrl);
+Application = new Application(Driver);
+```
+
+This pattern ensures a stable WinAppDriver session regardless of Pro's splash screen behavior.
+
 ---
 
 ## Repository Structure
@@ -255,6 +279,7 @@ dotnet test --logger "trx;LogFileName=results.trx"
   <TestRunParameters>
     <Parameter name="ArcGISProPath" value="C:\Program Files\ArcGIS\Pro\bin\ArcGISPro.exe" />
     <Parameter name="WinAppDriverUrl" value="http://127.0.0.1:4723" />
+    <Parameter name="StartupWaitSeconds" value="45" />
   </TestRunParameters>
 </RunSettings>
 ```
@@ -269,7 +294,7 @@ dotnet test --logger "trx;LogFileName=results.trx"
 | Developer Mode | Enabled | Required for WinAppDriver |
 | .NET SDK | 8.0+ | `dotnet --version` to verify |
 | WinAppDriver | 1.2.1 | Started programmatically by tests; must be installed |
-| ArcGIS Pro | 3.x | Must be licensed and signed in (at least once manually) |
+| ArcGIS Pro | 3.x | Must be licensed. Single Use License (SUL) or Named User License. If using Named User, sign in at least once manually before running tests. |
 | Visual Studio | 2022+ (optional) | For IDE-based test running; `dotnet test` works from CLI |
 
 ---
@@ -353,7 +378,7 @@ These rules apply to **every file in the repository**, regardless of language. A
 - Target **.NET 8+** with C# 12+ language features
 - All test classes **must** use `[TestClass]` attribute
 - All test methods **must** use `[TestMethod]` attribute
-- All test methods **must** have `[TestCategory]` attribute (`"CDF"` or `"ILL"`)
+- All test methods **must** have `[TestCategory]` attribute (`"CDF"`, `"ILL"`, or `"Smoke"`)
 - All test methods **must** have `[Description]` attribute linking to the issue being validated
 - Test classes **must** extend `ServiceNowTestBase` (which extends `ServiceNowTestClassBase`)
 - Test classes **must** have a `TestContext` property:
