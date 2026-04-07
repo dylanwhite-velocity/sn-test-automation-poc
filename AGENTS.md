@@ -1,10 +1,12 @@
 # AGENTS.md — ServiceNow Test Automation POC
 
 > Companion test harness for the [ServiceNow-ArcGIS Integration](https://github.com/EsriPS/ServiceNow_Esri_Integration) monorepo. This project validates the **CDF** (Custom Data Feed) and **ILL** (Indoor Location Loader) integrations through automated UI tests driven by WinAppDriver against ArcGIS Pro.
+>
+> **Architecture aligns with the Esri CUIT repo** — the canonical ArcGIS Pro UI testing framework used by all Esri product teams. We follow the same technology stack (C# / MSTest v2 / .NET), Page Object Model patterns, and test hierarchy conventions.
 
 ## Project Overview
 
-This is a **WinAppDriver UI test harness** that automates ArcGIS Pro to verify ServiceNow integration behavior end-to-end. Tests are written in Java (JUnit 4) and executed via Maven Surefire on Windows.
+This is a **WinAppDriver UI test harness** that automates ArcGIS Pro to verify ServiceNow integration behavior end-to-end. Tests are written in **C# (MSTest v2)** and built with the .NET SDK, following patterns established by the Esri CUIT framework.
 
 **What we test:**
 - **CDF integration** — Custom Data Feed feature layers visible in ArcGIS Pro maps (query results, attribute fidelity, spatial accuracy)
@@ -16,40 +18,245 @@ This is a **WinAppDriver UI test harness** that automates ArcGIS Pro to verify S
 - ILL Python logic directly (covered by `ill/tests/` in the integration repo)
 - UIB (separate team, out of scope)
 
-### Relationship to the Integration Repo
+### Relationship to Other Repos
 
 | Repo | Purpose |
 |---|---|
 | [`EsriPS/ServiceNow_Esri_Integration`](https://github.com/EsriPS/ServiceNow_Esri_Integration) | Source code for CDF (JS) and ILL (Python). Unit tests, linting, documentation. |
-| [`sn-test-automation-poc`](https://github.com/dylanwhite-velocity/sn-test-automation-poc) | **This repo.** End-to-end UI tests that validate CDF and ILL behavior through ArcGIS Pro. |
+| [`sn-test-automation-poc`](https://github.com/dylanwhite-velocity/sn-test-automation-poc) | **This repo.** End-to-end UI tests validating CDF/ILL through ArcGIS Pro. |
+| CUIT (internal Esri) | Canonical ArcGIS Pro UI test framework. Our patterns are derived from this. |
 
 When CDF or ILL behavior changes in the integration repo, corresponding test cases here may need updates. Cross-reference PRs by linking to the integration repo issue number.
+
+---
+
+## CUIT-Aligned Architecture
+
+Our test architecture mirrors the patterns from the Esri CUIT framework. Understanding CUIT is essential for writing tests correctly.
+
+### Key CUIT Concepts
+
+| CUIT Component | Our Equivalent | Purpose |
+|---|---|---|
+| `UITestingHelpers.UITestClassBase` | `ServiceNow.TestHelpers.ServiceNowTestClassBase` | Base test class with `[TestInitialize]`/`[TestCleanup]`, failure screenshots, trace logging |
+| `UITestingHelpers.ProApplication.Application` | `ServiceNow.TestHelpers.ProApplication.Application` | Page Object wrapping the running ArcGIS Pro instance |
+| `UITestingHelpers.Controls.Base.ActiProBase` | `ServiceNow.TestHelpers.ProApplication.ActiProBase` | Root POM base holding `WinAppDriver` driver and `MainWindow` |
+| `UITestingHelpers.Utilities.ApplicationUtils` | `ServiceNow.TestHelpers.Utilities.ApplicationUtils` | Start/stop Pro via WinAppDriver, get desktop sessions, kill processes |
+| `UITestingHelpers.Utilities.WinAppDriverUtilities` | `ServiceNow.TestHelpers.Utilities.WinAppDriverUtils` | Start/stop WinAppDriver programmatically |
+| Team `TestEnvironment` class | `ServiceNow.Integration.Tests.TestEnvironment` | `[AssemblyInitialize]`/`[AssemblyCleanup]` — starts WAD, configures registry |
+| Team `TestBase` class | `ServiceNow.Integration.Tests.ServiceNowTestBase` | Team-specific base extending `ServiceNowTestClassBase` |
+| `[VideoLoggedTestClass]` | `[TestClass]` (video TBD) | Class-level test attribute |
+| `[AppDriverOptions]` | `[AppDriverOptions]` | Select WAD v1 or v2 driver |
+
+### Test Class Hierarchy
+
+```
+ServiceNowTestClassBase                         (shared: session lifecycle, screenshots, logging)
+  └── ServiceNowTestBase                         (team: start/kill Pro per test, crash dump monitoring)
+        ├── CdfFeatureLayerTests                 (CDF tests)
+        ├── CdfAttributeTests                    (CDF tests)
+        ├── IllToolExecutionTests                (ILL tests)
+        └── ...
+```
+
+### Page Object Model (POM)
+
+Tests **never** call `driver.FindElementByAccessibilityId(...)` directly. Instead, they interact through typed POM classes:
+
+```csharp
+// WRONG — raw element access in test code
+var tab = driver.FindElementByAccessibilityId("nalysisTab");
+tab.Click();
+
+// RIGHT — use POM classes
+var analysisTab = new AnalysisTab(Application);
+analysisTab.EnableTab();
+var gp = analysisTab.OpenGeoprocessing();
+```
+
+POM classes live in the `ServiceNow.TestHelpers` project and encapsulate all element location logic, waits, and retries.
+
+### Assembly Lifecycle (TestEnvironment)
+
+Every test project has a `TestEnvironment` class that runs once per assembly:
+
+```csharp
+[TestClass]
+public class TestEnvironment
+{
+    [AssemblyInitialize]
+    public static void AssemblyInitialize(TestContext testContext)
+    {
+        WinAppDriverUtils.StartWinAppDriver();
+        // Additional one-time setup
+    }
+
+    [AssemblyCleanup]
+    public static void AssemblyCleanup()
+    {
+        WinAppDriverUtils.CloseWinAppDriver();
+    }
+}
+```
+
+WinAppDriver is started/stopped **programmatically** — you do not need to manually launch it before running tests.
+
+---
 
 ## Repository Structure
 
 ```
 sn-test-automation-poc/
-├── AGENTS.md                                   # This file — agent instructions and project conventions
-├── README.md                                   # Setup guide, running tests, troubleshooting
-├── pom.xml                                     # Maven config, dependencies, Surefire plugin
+├── AGENTS.md                                         # This file
+├── README.md                                         # Setup guide, troubleshooting
 ├── .gitignore
-└── src/test/java/com/esri/sn/
-    ├── base/
-    │   └── WinAppDriverTestBase.java           # Session lifecycle — all tests extend this
-    ├── tests/
-    │   └── ArcGisProLaunchTest.java            # POC: launch ArcGIS Pro, assert window
-    └── utils/
-        └── TestResultLogger.java               # Structured console logging via JUnit TestWatcher
+├── sn-test-automation-poc.sln                        # Solution file
+├── test.runsettings                                  # Test run configuration
+│
+├── src/
+│   ├── ServiceNow.TestHelpers/                       # Shared helper library (our UITestingHelpers)
+│   │   ├── ServiceNow.TestHelpers.csproj
+│   │   ├── Base/
+│   │   │   └── ServiceNowTestClassBase.cs            # Base test class (like UITestClassBase)
+│   │   ├── ProApplication/
+│   │   │   ├── ActiProBase.cs                        # Root POM base: WinAppDriver + MainWindow
+│   │   │   ├── Application.cs                        # ArcGIS Pro application wrapper
+│   │   │   ├── Ribbon/
+│   │   │   │   ├── RibbonTabBase.cs                  # Base for all ribbon tabs
+│   │   │   │   ├── AnalysisTab.cs                    # Analysis ribbon tab
+│   │   │   │   ├── MapTab.cs                         # Map ribbon tab
+│   │   │   │   └── InsertTab.cs                      # Insert ribbon tab
+│   │   │   ├── Pane/
+│   │   │   │   ├── PaneBase.cs                       # Base for all dockable panes
+│   │   │   │   ├── ContentsPane.cs                   # Contents pane (layer list)
+│   │   │   │   ├── CatalogPane.cs                    # Catalog pane
+│   │   │   │   └── GeoprocessingPane.cs              # Geoprocessing pane (for ILL)
+│   │   │   ├── Dialogs/
+│   │   │   │   └── MessageDialog.cs                  # Common Pro dialogs
+│   │   │   └── View/
+│   │   │       └── MapView.cs                        # Map view wrapper
+│   │   └── Utilities/
+│   │       ├── ApplicationUtils.cs                   # Start/stop Pro, session management
+│   │       ├── WinAppDriverUtils.cs                  # Start/stop WinAppDriver
+│   │       ├── WaitingUtils.cs                       # Retry-until-success patterns
+│   │       └── ScreenCaptureUtils.cs                 # Screenshot capture
+│   │
+│   └── ServiceNow.Integration.Tests/                 # Test project
+│       ├── ServiceNow.Integration.Tests.csproj
+│       ├── TestEnvironment.cs                        # [AssemblyInitialize/Cleanup]
+│       ├── ServiceNowTestBase.cs                     # Team-specific test base
+│       ├── CDF/
+│       │   ├── CdfFeatureLayerTests.cs               # CDF feature layer tests
+│       │   └── CdfAttributeTests.cs                  # CDF attribute validation
+│       └── ILL/
+│           └── IllToolExecutionTests.cs              # ILL geoprocessing tool tests
+│
+└── legacy/                                           # Archived Java POC (reference only)
+    └── java-poc/                                     # Original Java/JUnit/Maven code
 ```
 
 ### Key directories
 
 | Path | Purpose |
 |---|---|
-| `src/test/java/com/esri/sn/base/` | Abstract base class managing WinAppDriver session lifecycle |
-| `src/test/java/com/esri/sn/tests/` | Test classes — one class per feature area being tested |
-| `src/test/java/com/esri/sn/utils/` | Shared test utilities (logging, helpers) |
-| `test-results/` | Surefire XML reports and failure screenshots (gitignored) |
+| `src/ServiceNow.TestHelpers/` | Shared helper library — POM classes, utilities, base classes |
+| `src/ServiceNow.TestHelpers/ProApplication/` | Page Object Model for ArcGIS Pro UI elements |
+| `src/ServiceNow.TestHelpers/Utilities/` | Shared utilities (wait/retry, screenshots, app lifecycle) |
+| `src/ServiceNow.Integration.Tests/` | Test classes organized by integration area (CDF, ILL) |
+| `src/ServiceNow.Integration.Tests/CDF/` | CDF-specific test classes |
+| `src/ServiceNow.Integration.Tests/ILL/` | ILL-specific test classes |
+| `TestResults/` | MSTest output — TRX files, logs, screenshots (gitignored) |
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Language | C# (.NET 8+) |
+| Test framework | MSTest v2 (`Microsoft.VisualStudio.TestTools.UnitTesting`) |
+| UI automation | WinAppDriver via Appium `WindowsDriver<AppiumWebElement>` |
+| Appium client | `Appium.WebDriver` NuGet package |
+| Build tool | .NET SDK (`dotnet build`, `dotnet test`) |
+| Target application | ArcGIS Pro 3.x (WPF desktop app, Windows only) |
+| Integration source | ServiceNow REST API → CDF Feature Service / ILL Python Toolbox |
+
+---
+
+## Build & Test Commands
+
+All test execution requires **Windows** with ArcGIS Pro installed. WinAppDriver is started programmatically by `TestEnvironment.AssemblyInitialize`.
+
+```cmd
+:: Restore NuGet packages
+dotnet restore
+
+:: Build (verify compilation, no test execution)
+dotnet build
+
+:: Run all tests
+dotnet test
+
+:: Run all tests with detailed output
+dotnet test --logger "console;verbosity=detailed"
+
+:: Run tests with specific runsettings
+dotnet test --settings test.runsettings
+
+:: Run only CDF tests (by filter)
+dotnet test --filter "TestCategory=CDF"
+
+:: Run only ILL tests (by filter)
+dotnet test --filter "TestCategory=ILL"
+
+:: Run a specific test class
+dotnet test --filter "FullyQualifiedName~CdfFeatureLayerTests"
+
+:: Run a specific test method
+dotnet test --filter "FullyQualifiedName~CdfFeatureLayerTests.VerifyLayerLoadsFromCdfService"
+
+:: Generate TRX report
+dotnet test --logger "trx;LogFileName=results.trx"
+```
+
+### Test Run Settings (test.runsettings)
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <MaxCpuCount>1</MaxCpuCount>
+    <ResultsDirectory>.\TestResults</ResultsDirectory>
+    <TargetPlatform>x64</TargetPlatform>
+    <TestSessionTimeout>36000000</TestSessionTimeout>
+  </RunConfiguration>
+  <MSTest>
+    <CaptureTraceOutput>True</CaptureTraceOutput>
+    <DeploymentEnabled>True</DeploymentEnabled>
+    <DeleteDeploymentDirectoryAfterTestRunIsComplete>False</DeleteDeploymentDirectoryAfterTestRunIsComplete>
+    <TestTimeout>450000</TestTimeout>
+  </MSTest>
+  <TestRunParameters>
+    <Parameter name="ArcGISProPath" value="C:\Program Files\ArcGIS\Pro\bin\ArcGISPro.exe" />
+    <Parameter name="WinAppDriverUrl" value="http://127.0.0.1:4723" />
+  </TestRunParameters>
+</RunSettings>
+```
+
+---
+
+## Prerequisites
+
+| Requirement | Version | Notes |
+|---|---|---|
+| Windows | 10/11 | WinAppDriver is Windows-only |
+| Developer Mode | Enabled | Required for WinAppDriver |
+| .NET SDK | 8.0+ | `dotnet --version` to verify |
+| WinAppDriver | 1.2.1 | Started programmatically by tests; must be installed |
+| ArcGIS Pro | 3.x | Must be licensed and signed in (at least once manually) |
+| Visual Studio | 2022+ (optional) | For IDE-based test running; `dotnet test` works from CLI |
+
+---
 
 ## Branching Strategy
 
@@ -60,45 +267,6 @@ main                              # Stable, reviewed tests
 
 PR titles follow: `(feat|fix|cicd|chore)/<issue-number>-short-description`
 
-## Build & Test Commands
-
-All commands require **Windows** with WinAppDriver running and ArcGIS Pro installed.
-
-```cmd
-:: Compile (verify dependencies, no test execution)
-mvn test-compile
-
-:: Run all tests (WinAppDriver must be running)
-mvn test
-
-:: Run with overrides
-mvn test -Darcgis.pro.exe.path="D:\ArcGIS\Pro\bin\ArcGISPro.exe"
-mvn test -Darcgis.pro.startup.wait.seconds=90
-mvn test -Dwinappdriver.url="http://127.0.0.1:4727"
-
-:: Generate HTML report
-mvn surefire-report:report
-```
-
-### Configurable Properties
-
-| Property | Default | Description |
-|---|---|---|
-| `winappdriver.url` | `http://127.0.0.1:4723` | WinAppDriver endpoint |
-| `arcgis.pro.exe.path` | `C:\Program Files\ArcGIS\Pro\bin\ArcGISPro.exe` | Full path to ArcGIS Pro |
-| `arcgis.pro.startup.wait.seconds` | `45` | Seconds to wait after launching Pro before running tests |
-
-## Prerequisites
-
-| Requirement | Version | Notes |
-|---|---|---|
-| Windows | 10/11 | WinAppDriver is Windows-only |
-| Developer Mode | Enabled | Required for WinAppDriver |
-| JDK | 11+ | `JAVA_HOME` must be set |
-| Maven | 3.6+ | `M2_HOME` on `PATH` |
-| WinAppDriver | 1.2.1 | Must be running as Administrator during tests |
-| ArcGIS Pro | 3.x | Must be licensed and signed in (at least once manually) |
-
 ## Issue & PR Conventions
 
 ### PR Template
@@ -108,9 +276,9 @@ mvn surefire-report:report
 
 ### Git Commit Message Format
 Follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
-- `feat(tests): add CDF layer visibility test`
+- `feat(cdf): add feature layer visibility test`
 - `fix(base): increase implicit wait for slow environments`
-- `chore(deps): bump selenium to 3.x.x`
+- `chore(deps): update Appium.WebDriver NuGet package`
 
 ---
 
@@ -125,66 +293,82 @@ Follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 - Exception handling **should** be used to gracefully handle test setup/teardown failures
 - Follow DRY, KISS, YAGNI, and Single Responsibility principles
 
-### Java Standards
+### C# / MSTest Standards
 
-- All code **must** target Java 11+
-- All code **must** use meaningful, descriptive names (e.g., `verifyFeatureLayerHasAttributes` not `test1`)
-- Every public class and method **must** have a Javadoc comment describing its purpose
-- Every test class **must** extend `WinAppDriverTestBase`
-- Every test class **must** include the `TestResultLogger` rule:
-  ```java
-  @Rule
-  public TestWatcher resultLogger = TestResultLogger.create();
+- Target **.NET 8+** with C# 12+ language features
+- All test classes **must** use `[TestClass]` attribute
+- All test methods **must** use `[TestMethod]` attribute
+- All test methods **must** have `[TestCategory]` attribute (`"CDF"` or `"ILL"`)
+- All test methods **must** have `[Description]` attribute linking to the issue being validated
+- Test classes **must** extend `ServiceNowTestBase` (which extends `ServiceNowTestClassBase`)
+- Test classes **must** have a `TestContext` property:
+  ```csharp
+  public TestContext TestContext { get; set; }
   ```
-- Test classes **must** live in `src/test/java/com/esri/sn/tests/`
-- Utility classes **must** live in `src/test/java/com/esri/sn/utils/`
-- Base classes **must** live in `src/test/java/com/esri/sn/base/`
+- Use `Assert.IsTrue`, `Assert.AreEqual`, `Assert.IsNotNull`, etc. with descriptive messages
+- Use **POM classes** for all UI interactions — never call `FindElement*` directly in test methods
+- Use `/// <summary>` XML doc comments on public classes and methods
+
+### Page Object Model (POM) Standards
+
+- POM classes live in `ServiceNow.TestHelpers/ProApplication/`
+- Every POM class receives an `Application` instance (or its parent POM) via constructor
+- POM classes encapsulate element location, waits, and retries internally
+- POM methods return typed results (other POM objects, strings, booleans) — not raw `AppiumWebElement`
+- Use `WaitingUtils.RetryUntilSuccessOrTimeout()` for element waits, not `Thread.Sleep()`
+- Follow CUIT naming: `AnalysisTab`, `ContentsPane`, `GeoprocessingPane`, `MapView`
 
 ### Element Location Strategy
 
-When locating ArcGIS Pro UI elements, use this priority order:
+When locating ArcGIS Pro UI elements inside POM classes, use this priority order:
 
 | Priority | Strategy | Example | When to use |
 |---|---|---|---|
-| 1 | AccessibilityId | `driver.findElementByAccessibilityId("RibbonTabMap")` | **Preferred** — most stable across versions |
-| 2 | Name | `driver.findElementByName("Map")` | When AutomationId is unavailable |
-| 3 | ClassName | `driver.findElementByClassName("Button")` | For generic element types |
-| 4 | XPath | `driver.findElementByXPath("//Button[@Name='OK']")` | Last resort — fragile |
+| 1 | AccessibilityId | `element.FindElementByAccessibilityId("nalysisTab")` | **Preferred** — most stable across Pro versions |
+| 2 | Name | `element.FindElementByName("Analysis")` | When AutomationId is unavailable |
+| 3 | ClassName | `element.FindElementByClassName("RibbonTabHeader")` | For generic element types |
+| 4 | XPath | `element.FindElementByXPath("//Button[@Name='OK']")` | Last resort — fragile across versions |
 
-Use **Inspect.exe** or **Accessibility Insights** to discover element identifiers.
+Use **Inspect.exe** (`C:\Program Files (x86)\Windows Kits\10\bin\x64\inspect.exe`) or **Accessibility Insights for Windows** to discover element identifiers.
 
 ### Test Class Template
 
-```java
-package com.esri.sn.tests;
+```csharp
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ServiceNow.TestHelpers.ProApplication;
+using ServiceNow.TestHelpers.ProApplication.Ribbon;
+using ServiceNow.TestHelpers.Utilities;
 
-import com.esri.sn.base.WinAppDriverTestBase;
-import com.esri.sn.utils.TestResultLogger;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TestWatcher;
+namespace ServiceNow.Integration.Tests.CDF
+{
+    /// <summary>
+    /// Tests that verify CDF feature layers load correctly in ArcGIS Pro.
+    /// Validates: layer visibility, attribute presence, spatial accuracy.
+    /// </summary>
+    [TestClass]
+    public class CdfFeatureLayerTests : ServiceNowTestBase
+    {
+        public TestContext TestContext { get; set; }
 
-/**
- * Tests for [feature area being tested].
- *
- * <p>[What CDF/ILL behavior this validates and why it matters.]</p>
- *
- * <p><strong>Prerequisites:</strong> [Any specific setup beyond standard base class.]</p>
- */
-public class FeatureAreaTest extends WinAppDriverTestBase {
+        /// <summary>
+        /// Verifies that a CDF feature layer loads and is visible in the Contents pane.
+        /// Related: EsriPS/ServiceNow_Esri_Integration#123
+        /// </summary>
+        [TestMethod]
+        [TestCategory("CDF")]
+        [Description("https://github.com/EsriPS/ServiceNow_Esri_Integration/issues/123")]
+        public void VerifyLayerLoadsFromCdfService()
+        {
+            // Arrange — open a project with the CDF feature service
+            var app = StartProWithProject("CdfTestProject.aprx");
+            var contentsPane = new ContentsPane(app);
 
-    @Rule
-    public TestWatcher resultLogger = TestResultLogger.create();
+            // Act — check layer presence
+            bool layerExists = contentsPane.DoesLayerExist("ServiceNow Incidents");
 
-    /**
-     * Verifies that [specific behavior under test].
-     */
-    @Test
-    public void verifySpecificBehavior() {
-        // Arrange — locate elements
-        // Act — interact with the UI
-        // Assert — verify expected state
+            // Assert
+            Assert.IsTrue(layerExists, "CDF feature layer 'ServiceNow Incidents' should be visible in Contents pane");
+        }
     }
 }
 ```
@@ -205,15 +389,27 @@ The ILL is an ArcGIS Pro Python Toolbox (`.pyt`) that loads indoor location data
 
 **Source:** `ill/` in [`EsriPS/ServiceNow_Esri_Integration`](https://github.com/EsriPS/ServiceNow_Esri_Integration) (branch: `dev-ill`)
 
-### Technology Stack
+### How CUIT Tests GP Tools (ILL Reference)
 
-| Layer | Technology |
-|---|---|
-| Test framework | JUnit 4 |
-| UI automation | WinAppDriver 1.2.1 via Appium java-client |
-| Build tool | Maven 3.6+ with Surefire |
-| Target application | ArcGIS Pro 3.x (WPF desktop app, Windows only) |
-| Integration source | ServiceNow REST API → CDF Feature Service / ILL Python Toolbox |
+The CUIT Geoprocessing tests provide the pattern for our ILL tests:
+
+```csharp
+// CUIT pattern: Open a project, navigate to Analysis tab, open GP tool
+var app = StartProInWinAppDriver(projectPath);
+var analysisTab = new AnalysisTab(app);
+analysisTab.EnableTab();
+
+// Open the Geoprocessing pane and search for a tool
+var gp = new Geoprocessing(app);
+gp.SearchForTool("Indoor Location Loader");
+
+// Set parameters via the tool dialog
+gp.ToolDialogPage.SetParameterValue("Input Features", inputLayer);
+gp.ToolDialogPage.ClickRun();
+
+// Wait for execution and verify results
+Assert.IsTrue(gp.DidToolSucceed(), "ILL tool should complete successfully");
+```
 
 ---
 
@@ -223,7 +419,7 @@ The ILL is an ArcGIS Pro Python Toolbox (`.pyt`) that loads indoor location data
 
 All agents **must** follow this protocol before proceeding with any task that depends on external information:
 
-1. **Gather** — Read all available inputs (issues, PRs, source code, existing tests).
+1. **Gather** — Read all available inputs (issues, PRs, source code, existing tests, CUIT reference patterns).
 2. **Assess** — Determine whether you have enough information to produce an accurate, complete result.
 3. **Pause if blocked** — If any required information is missing, ambiguous, or contradictory:
    - **Stop work** immediately. Do not guess or fill in gaps with assumptions.
@@ -236,35 +432,38 @@ All agents **must** follow this protocol before proceeding with any task that de
 **Trigger:** Asked to write a new test case, extend coverage, or create test scaffolding for a CDF/ILL feature.
 
 **Workflow:**
-1. Identify which CDF/ILL feature is being tested and locate the relevant source in the integration repo
-2. Determine which ArcGIS Pro UI elements are involved (check Inspect.exe output or existing tests for reference)
-3. Create the test class following the Test Class Template (see Coding Standards above)
-4. Ensure the test extends `WinAppDriverTestBase` and includes `TestResultLogger`
-5. Use the element location strategy priority order (AccessibilityId first)
-6. Verify the test compiles with `mvn test-compile`
+1. Read the existing test base classes and POM classes to understand what's already available
+2. Identify which CDF/ILL feature is being tested and locate the relevant source in the integration repo
+3. Determine which ArcGIS Pro UI elements are involved — check existing POM classes first, then Inspect.exe
+4. If new POM classes are needed, create them in `ServiceNow.TestHelpers/ProApplication/` following CUIT patterns
+5. Create the test class in the appropriate subdirectory (`CDF/` or `ILL/`)
+6. Ensure the test extends `ServiceNowTestBase` and uses `[TestMethod]`, `[TestCategory]`, `[Description]`
+7. Use POM classes for all UI interaction — never raw `FindElement*` in test methods
+8. Verify the test compiles with `dotnet build`
 
 **Rules:**
-- Every test must have a clear Javadoc explaining what integration behavior it validates
+- Every test must have XML doc comments explaining what integration behavior it validates
 - Tests must be deterministic — no reliance on transient ServiceNow data without setup/teardown
 - Use `Assert` messages that explain what was expected vs what was found
-- Capture screenshots on failure (handled automatically by `TestResultLogger`)
-- Reference the integration repo issue number in test Javadoc when applicable
+- Failure screenshots are captured automatically by `ServiceNowTestClassBase`
+- Reference the integration repo issue number in `[Description]` attribute
+- New POM classes must follow the CUIT pattern: constructor takes `Application`, element access via `FindElementByAccessibilityId` with retry/wait wrappers
 
 ### Test Runner
 
 **Trigger:** Asked to run tests, verify results, or diagnose failures.
 
 **Workflow:**
-1. Verify the Windows environment (WinAppDriver running, ArcGIS Pro installed)
-2. Run `mvn test` (or a subset with `-Dtest=ClassName`)
-3. Report results: passed/failed count, failure details, screenshot locations
+1. Verify the Windows environment (ArcGIS Pro installed, Developer Mode enabled, WinAppDriver installed)
+2. Run `dotnet test` (or with `--filter` for a subset)
+3. Report results: passed/failed count, failure details, screenshot locations in `TestResults/`
 4. If tests fail, examine the failure output, screenshots, and relevant source to diagnose the root cause
-5. Distinguish between test bugs (our code) and integration bugs (CDF/ILL behavior changed)
+5. Distinguish between test bugs (our code), POM bugs (element IDs changed), and integration bugs (CDF/ILL behavior changed)
 
 **Rules:**
 - Never modify test files or source code unless explicitly asked
 - Report the exact error output — do not summarize away details
-- For environment issues (WinAppDriver not running, Pro not found), diagnose and provide the fix command
+- For environment issues (WinAppDriver not installed, Pro not found), diagnose and provide the fix
 - Note when failures may indicate a regression in the integration repo's CDF or ILL code
 
 ---
