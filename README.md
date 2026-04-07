@@ -9,31 +9,77 @@ This project uses [WinAppDriver](https://github.com/microsoft/WinAppDriver) to d
 **This is a proof-of-concept.** The immediate goal is to prove the full automation chain works:
 `WinAppDriver → Appium java-client → JUnit 4 → ArcGIS Pro`
 
-## Prerequisites
+> **Cross-platform note:** Test code is authored on macOS and executed on Windows.
+> The project compiles on any OS, but tests only run on Windows where WinAppDriver and ArcGIS Pro are installed.
 
-| Requirement | Version | Notes |
-|---|---|---|
-| Windows 10/11 | — | WinAppDriver is Windows-only |
-| Developer Mode | Enabled | Settings → Update & Security → For Developers |
-| JDK | 11+ | `java -version` to verify |
-| Maven | 3.6+ | `mvn -version` to verify |
-| WinAppDriver | 1.2.1 | See install steps below |
-| ArcGIS Pro | 3.x | Default install path assumed |
+---
 
-## Windows Setup
+## Getting Started (Windows)
 
-### 1. Install WinAppDriver
+Follow these steps **in order** the first time you set up the project on a Windows machine.
 
-1. Download the latest installer from [WinAppDriver releases](https://github.com/Microsoft/WinAppDriver/releases)
-2. Run the `.msi` installer
-3. Default install location: `C:\Program Files (x86)\Windows Application Driver\`
+### Step 1 — Clone the repo
 
-### 2. Enable Developer Mode
+```cmd
+git clone https://github.com/dylanwhite-velocity/sn-test-automation-poc.git
+cd sn-test-automation-poc
+```
 
-1. Open **Settings → Update & Security → For developers**
+If you already have the repo, pull the latest:
+
+```cmd
+git pull origin main
+```
+
+### Step 2 — Install JDK 11+
+
+Download and install a JDK 11 or later distribution. Recommended: [Eclipse Temurin (Adoptium)](https://adoptium.net/).
+
+Verify after install:
+
+```cmd
+java -version
+```
+
+Expected output (version 11 or higher):
+
+```
+openjdk version "11.0.x" ...
+```
+
+> **Tip:** Ensure `JAVA_HOME` is set and `%JAVA_HOME%\bin` is on your `PATH`.
+
+### Step 3 — Install Maven 3.6+
+
+Download from [Maven downloads](https://maven.apache.org/download.cgi) and follow the [installation instructions](https://maven.apache.org/install.html).
+
+Verify:
+
+```cmd
+mvn -version
+```
+
+Expected output (3.6 or higher):
+
+```
+Apache Maven 3.9.x ...
+```
+
+> **Tip:** Add `M2_HOME` and `%M2_HOME%\bin` to your `PATH`.
+
+### Step 4 — Enable Developer Mode
+
+1. Open **Settings → Update & Security → For developers** (Windows 10) or **Settings → System → For developers** (Windows 11)
 2. Toggle **Developer Mode** to **On**
 
-### 3. Start WinAppDriver
+This is required for WinAppDriver to function.
+
+### Step 5 — Install WinAppDriver
+
+1. Download the latest `.msi` from [WinAppDriver releases](https://github.com/Microsoft/WinAppDriver/releases)
+2. Run the installer (default path: `C:\Program Files (x86)\Windows Application Driver\`)
+
+### Step 6 — Start WinAppDriver
 
 Open a terminal **as Administrator** and run:
 
@@ -48,32 +94,88 @@ Windows Application Driver listening for requests at: http://127.0.0.1:4723/
 Press ENTER to exit.
 ```
 
-Leave this running while tests execute.
+**Leave this terminal open** while tests execute.
+
+### Step 7 — Verify the full environment
+
+Run this quick check to confirm everything is in place before your first test run:
+
+```cmd
+:: JDK
+java -version
+
+:: Maven
+mvn -version
+
+:: ArcGIS Pro installed
+dir "C:\Program Files\ArcGIS\Pro\bin\ArcGISPro.exe"
+
+:: WinAppDriver responding (should show HTML or connection error if not started)
+curl -s http://127.0.0.1:4723/status
+```
+
+All four commands should succeed. If any fail, revisit the corresponding step above.
+
+### Step 8 — Run the POC tests
+
+```cmd
+mvn test
+```
+
+If ArcGIS Pro is installed at a non-default location:
+
+```cmd
+mvn test -Darcgis.pro.exe.path="D:\ArcGIS\Pro\bin\ArcGISPro.exe"
+```
+
+You should see console output like:
+
+```
+[TEST RESULT] PASSED | ArcGisProLaunchTest#verifyArcGisProLaunches
+[TEST RESULT] PASSED | ArcGisProLaunchTest#verifyMainWindowHasElements
+```
+
+---
+
+## Prerequisites (Quick Reference)
+
+| Requirement | Version | Verify With |
+|---|---|---|
+| Windows 10/11 | — | — |
+| Developer Mode | Enabled | Settings → For Developers |
+| JDK | 11+ | `java -version` |
+| Maven | 3.6+ | `mvn -version` |
+| WinAppDriver | 1.2.1 | `curl http://127.0.0.1:4723/status` |
+| ArcGIS Pro | 3.x | `dir "C:\Program Files\ArcGIS\Pro\bin\ArcGISPro.exe"` |
+
+---
 
 ## Running Tests
 
 From the project root:
 
-```bash
+```cmd
 mvn test
 ```
 
 ### Override Default Settings
 
-```bash
-# Custom ArcGIS Pro path
+```cmd
+:: Custom ArcGIS Pro path
 mvn test -Darcgis.pro.exe.path="D:\ArcGIS\Pro\bin\ArcGISPro.exe"
 
-# Custom WinAppDriver URL
+:: Custom WinAppDriver URL
 mvn test -Dwinappdriver.url="http://127.0.0.1:4727"
 
-# Both
+:: Both
 mvn test -Darcgis.pro.exe.path="D:\ArcGIS\Pro\bin\ArcGISPro.exe" -Dwinappdriver.url="http://127.0.0.1:4727"
 ```
 
+---
+
 ## Test Results
 
-After running `mvn test`, results are generated in:
+After `mvn test`, results land in:
 
 ```
 test-results/
@@ -82,38 +184,75 @@ test-results/
 
 For an HTML report:
 
-```bash
+```cmd
 mvn surefire-report:report
-# Opens at target/site/surefire-report.html
+:: Opens at target/site/surefire-report.html
 ```
 
-Structured result logs also appear in the console output:
+Structured result logs also appear in the console:
 
 ```
 [TEST RESULT] PASSED | ArcGisProLaunchTest#verifyArcGisProLaunches
 [TEST RESULT] PASSED | ArcGisProLaunchTest#verifyMainWindowHasElements
 ```
 
+---
+
 ## Project Structure
 
 ```
-src/test/java/com/esri/sn/
-├── base/
-│   └── WinAppDriverTestBase.java   # Session lifecycle — all tests extend this
-├── tests/
-│   └── ArcGisProLaunchTest.java    # POC: launch ArcGIS Pro, assert window
-└── utils/
-    └── TestResultLogger.java       # Structured console logging via JUnit TestWatcher
+sn-test-automation-poc/
+├── src/test/java/com/esri/sn/
+│   ├── base/
+│   │   └── WinAppDriverTestBase.java   # Session lifecycle — all tests extend this
+│   ├── tests/
+│   │   └── ArcGisProLaunchTest.java    # POC: launch ArcGIS Pro, assert window
+│   └── utils/
+│       └── TestResultLogger.java       # Structured console logging via JUnit TestWatcher
+├── pom.xml                             # Dependencies & Surefire config
+├── README.md                           # This file
+└── .gitignore
 ```
+
+---
 
 ## Development Workflow (Mac → Windows)
 
-1. **Mac:** Author/edit test code
-2. **Mac:** `git push`
-3. **Windows VM:** `git pull`
-4. **Windows VM:** Start WinAppDriver as admin
-5. **Windows VM:** `mvn test`
-6. **Windows VM:** Review results in `test-results/` or `target/site/surefire-report.html`
+| Step | Machine | Command / Action |
+|---|---|---|
+| 1 | Mac | Author / edit test code |
+| 2 | Mac | `git push` |
+| 3 | Windows VM | `git pull` |
+| 4 | Windows VM | Start WinAppDriver as admin |
+| 5 | Windows VM | `mvn test` |
+| 6 | Windows VM | Review results in `test-results/` or `target/site/surefire-report.html` |
+
+---
+
+## Copilot Agent
+
+This project has a companion Copilot agent: **`servicenow-test-developer`**.
+
+- **Location:** `~/.copilot/agents/servicenow-test-developer.agent.md` (local to each machine)
+- **Purpose:** Generates WinAppDriver test cases following this project's patterns
+- **Setup:** Manually copy the agent file from your Mac to `~/.copilot/agents/` on the Windows VM
+
+The agent will verify your Windows environment before writing tests. See the agent file for full details.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---|---|---|
+| `java` not recognized | JDK not installed or not on PATH | Install JDK 11+, set `JAVA_HOME`, add to `PATH` |
+| `mvn` not recognized | Maven not installed or not on PATH | Install Maven, set `M2_HOME`, add to `PATH` |
+| Connection refused on 4723 | WinAppDriver not running | Start `WinAppDriver.exe` as admin |
+| "Developer Mode is not enabled" | Windows setting not toggled | Settings → For Developers → On |
+| ArcGIS Pro not found | Wrong exe path | Override with `-Darcgis.pro.exe.path="..."` |
+| Tests compile but fail at runtime on Mac | Expected — WinAppDriver is Windows-only | Run tests on Windows |
+
+---
 
 ## Related Resources
 
@@ -121,5 +260,17 @@ src/test/java/com/esri/sn/
 - [WinAppDriver Java Samples](https://github.com/microsoft/WinAppDriver/tree/master/Samples/Java)
 - [Authoring Test Scripts](https://github.com/microsoft/WinAppDriver/blob/master/Docs/AuthoringTestScripts.md)
 - [Inspect.exe (UI element inspector)](https://learn.microsoft.com/en-us/windows/win32/winauto/inspect-objects)
+- [Accessibility Insights for Windows](https://accessibilityinsights.io/docs/windows/overview/)
 - [ArcGIS Enterprise CDF Documentation](https://developers.arcgis.com/enterprise-sdk/guide/custom-data-feeds/)
+- [Esri CUIT Repo (internal)](https://devtopia.esri.com/ArcGISPro/cuit/) — team's existing WinAppDriver tests for ArcGIS Pro
+
+---
+
+## Changelog
+
+> Keep this section up to date as the project evolves. Newest entries at the top.
+
+| Date | Change |
+|---|---|
+| 2026-04-07 | Initial POC scaffold: Maven project, base class, launch test, result logger, README |
 
