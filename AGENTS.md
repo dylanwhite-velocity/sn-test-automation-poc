@@ -131,6 +131,7 @@ WinAppDriver is started/stopped **programmatically** — you do not need to manu
 
 ```
 sn-test-automation-poc/
+├── .editorconfig                                     # Code style (2-space indent, UTF-8)
 ├── AGENTS.md                                         # This file
 ├── README.md                                         # Setup guide, troubleshooting
 ├── .gitignore
@@ -148,17 +149,12 @@ sn-test-automation-poc/
 │   │   │   ├── Ribbon/
 │   │   │   │   ├── RibbonTabBase.cs                  # Base for all ribbon tabs
 │   │   │   │   ├── AnalysisTab.cs                    # Analysis ribbon tab
-│   │   │   │   ├── MapTab.cs                         # Map ribbon tab
-│   │   │   │   └── InsertTab.cs                      # Insert ribbon tab
-│   │   │   ├── Pane/
-│   │   │   │   ├── PaneBase.cs                       # Base for all dockable panes
-│   │   │   │   ├── ContentsPane.cs                   # Contents pane (layer list)
-│   │   │   │   ├── CatalogPane.cs                    # Catalog pane
-│   │   │   │   └── GeoprocessingPane.cs              # Geoprocessing pane (for ILL)
-│   │   │   ├── Dialogs/
-│   │   │   │   └── MessageDialog.cs                  # Common Pro dialogs
-│   │   │   └── View/
-│   │   │       └── MapView.cs                        # Map view wrapper
+│   │   │   │   ├── MapTab.cs                         # Map ribbon tab (stub)
+│   │   │   │   └── InsertTab.cs                      # Insert ribbon tab (stub)
+│   │   │   └── Pane/
+│   │   │       ├── PaneBase.cs                       # Base for all dockable panes
+│   │   │       ├── ContentsPane.cs                   # Contents pane (layer list)
+│   │   │       └── GeoprocessingPane.cs              # Geoprocessing pane (for ILL)
 │   │   └── Utilities/
 │   │       ├── ApplicationUtils.cs                   # Start/stop Pro, session management
 │   │       ├── WinAppDriverUtils.cs                  # Start/stop WinAppDriver
@@ -169,15 +165,12 @@ sn-test-automation-poc/
 │       ├── ServiceNow.Integration.Tests.csproj
 │       ├── TestEnvironment.cs                        # [AssemblyInitialize/Cleanup]
 │       ├── ServiceNowTestBase.cs                     # Team-specific test base
-│       ├── CDF/
-│       │   ├── CdfFeatureLayerTests.cs               # CDF feature layer tests
-│       │   └── CdfAttributeTests.cs                  # CDF attribute validation
-│       └── ILL/
-│           └── IllToolExecutionTests.cs              # ILL geoprocessing tool tests
-│
-└── legacy/                                           # Archived Java POC (reference only)
-    └── java-poc/                                     # Original Java/JUnit/Maven code
+│       └── Smoke/
+│           └── ArcGisProLaunchTests.cs               # Smoke tests (3 tests)
 ```
+
+> **Note:** `CDF/`, `ILL/`, `Dialogs/`, and `View/` directories will be created as tests
+> and POM classes are added. They do not exist yet in the repo.
 
 ### Key directories
 
@@ -186,9 +179,8 @@ sn-test-automation-poc/
 | `src/ServiceNow.TestHelpers/` | Shared helper library — POM classes, utilities, base classes |
 | `src/ServiceNow.TestHelpers/ProApplication/` | Page Object Model for ArcGIS Pro UI elements |
 | `src/ServiceNow.TestHelpers/Utilities/` | Shared utilities (wait/retry, screenshots, app lifecycle) |
-| `src/ServiceNow.Integration.Tests/` | Test classes organized by integration area (CDF, ILL) |
-| `src/ServiceNow.Integration.Tests/CDF/` | CDF-specific test classes |
-| `src/ServiceNow.Integration.Tests/ILL/` | ILL-specific test classes |
+| `src/ServiceNow.Integration.Tests/` | Test classes organized by integration area |
+| `src/ServiceNow.Integration.Tests/Smoke/` | Smoke tests validating the automation chain |
 | `TestResults/` | MSTest output — TRX files, logs, screenshots (gitignored) |
 
 ---
