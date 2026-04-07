@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <MaxCpuCount>1</MaxCpuCount>
+    <ResultsDirectory>.\TestResults</ResultsDirectory>
+    <TargetPlatform>x64</TargetPlatform>
+    <TestSessionTimeout>36000000</TestSessionTimeout>
+  </RunConfiguration>
+  <MSTest>
+    <CaptureTraceOutput>True</CaptureTraceOutput>
+    <DeploymentEnabled>True</DeploymentEnabled>
+    <DeleteDeploymentDirectoryAfterTestRunIsComplete>False</DeleteDeploymentDirectoryAfterTestRunIsComplete>
+    <TestTimeout>450000</TestTimeout>
+  </MSTest>
+  <TestRunParameters>
+    <Parameter name="ArcGISProPath" value="C:\Program Files\ArcGIS\Pro\bin\ArcGISPro.exe" />
+    <Parameter name="WinAppDriverUrl" value="http://127.0.0.1:4723" />
+    <Parameter name="StartupWaitSeconds" value="45" />
+  </TestRunParameters>
+</RunSettings>
