@@ -1,10 +1,12 @@
 package com.esri.sn.utils;
 
+import com.esri.sn.base.WinAppDriverTestBase;
 import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
 
 /**
- * JUnit 4 {@link TestWatcher} that logs structured test results to stdout.
+ * JUnit 4 {@link TestWatcher} that logs structured test results to stdout
+ * and captures a screenshot on failure.
  *
  * <p>Attach as a {@code @Rule} in every test class to get human-readable,
  * structured output alongside the Surefire XML/HTML reports.</p>
@@ -37,6 +39,11 @@ public final class TestResultLogger extends TestWatcher {
     @Override
     protected void failed(Throwable e, Description description) {
         logResult(description, "FAILED", e.getMessage());
+
+        // Capture screenshot on failure for debugging
+        String screenshotName = description.getTestClass().getSimpleName()
+                + "_" + description.getMethodName();
+        WinAppDriverTestBase.captureScreenshot(screenshotName);
     }
 
     @Override

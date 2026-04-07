@@ -116,7 +116,17 @@ curl -s http://127.0.0.1:4723/status
 
 All four commands should succeed. If any fail, revisit the corresponding step above.
 
-### Step 8 — Run the POC tests
+### Step 8 — Compile and download dependencies (first time)
+
+Before running tests, verify the project compiles and all Maven dependencies download:
+
+```cmd
+mvn test-compile
+```
+
+This should complete with `BUILD SUCCESS`. If it fails, check your JDK/Maven installation.
+
+### Step 9 — Run the POC tests
 
 ```cmd
 mvn test
@@ -131,9 +141,18 @@ mvn test -Darcgis.pro.exe.path="D:\ArcGIS\Pro\bin\ArcGISPro.exe"
 You should see console output like:
 
 ```
+[WinAppDriverTestBase] Waiting 45s for ArcGIS Pro to initialize...
+[WinAppDriverTestBase] Startup wait complete.
 [TEST RESULT] PASSED | ArcGisProLaunchTest#verifyArcGisProLaunches
 [TEST RESULT] PASSED | ArcGisProLaunchTest#verifyMainWindowHasElements
 ```
+
+> **Startup wait:** ArcGIS Pro takes 30–60+ seconds to launch. The base class waits 45 seconds by default.
+> Override with: `mvn test -Darcgis.pro.startup.wait.seconds=60`
+
+> **Sign-in screen:** If ArcGIS Pro shows a sign-in or licensing dialog on first launch,
+> sign in manually once, close Pro, then re-run the tests. The POC test expects the main
+> ArcGIS Pro window — not the sign-in dialog. Automating sign-in dismissal is a future iteration.
 
 ---
 
@@ -167,8 +186,11 @@ mvn test -Darcgis.pro.exe.path="D:\ArcGIS\Pro\bin\ArcGISPro.exe"
 :: Custom WinAppDriver URL
 mvn test -Dwinappdriver.url="http://127.0.0.1:4727"
 
-:: Both
-mvn test -Darcgis.pro.exe.path="D:\ArcGIS\Pro\bin\ArcGISPro.exe" -Dwinappdriver.url="http://127.0.0.1:4727"
+:: Longer startup wait (default is 45s)
+mvn test -Darcgis.pro.startup.wait.seconds=90
+
+:: All overrides combined
+mvn test -Darcgis.pro.exe.path="D:\ArcGIS\Pro\bin\ArcGISPro.exe" -Dwinappdriver.url="http://127.0.0.1:4727" -Darcgis.pro.startup.wait.seconds=60
 ```
 
 ---
@@ -180,6 +202,8 @@ After `mvn test`, results land in:
 ```
 test-results/
 ├── TEST-com.esri.sn.tests.ArcGisProLaunchTest.xml   # JUnit XML
+└── screenshots/                                       # Auto-captured on failure
+    └── ArcGisProLaunchTest_verifyArcGisProLaunches.png
 ```
 
 For an HTML report:
@@ -195,6 +219,9 @@ Structured result logs also appear in the console:
 [TEST RESULT] PASSED | ArcGisProLaunchTest#verifyArcGisProLaunches
 [TEST RESULT] PASSED | ArcGisProLaunchTest#verifyMainWindowHasElements
 ```
+
+> **Screenshots on failure:** When a test fails, a screenshot is automatically captured
+> and saved to `test-results/screenshots/`. Check these to see what was on screen.
 
 ---
 
@@ -251,6 +278,48 @@ The agent will verify your Windows environment before writing tests. See the age
 | "Developer Mode is not enabled" | Windows setting not toggled | Settings → For Developers → On |
 | ArcGIS Pro not found | Wrong exe path | Override with `-Darcgis.pro.exe.path="..."` |
 | Tests compile but fail at runtime on Mac | Expected — WinAppDriver is Windows-only | Run tests on Windows |
+| Title doesn't contain "ArcGIS Pro" | Sign-in/licensing dialog on first launch | Sign in manually once, close Pro, re-run tests |
+| Timeout during launch | ArcGIS Pro startup too slow | Increase wait: `-Darcgis.pro.startup.wait.seconds=90` |
+
+---
+
+## Writing New Tests
+
+After the POC passes, here's how to discover UI elements and write new tests.
+
+### 1. Discover element identifiers with Inspect.exe
+
+ArcGIS Pro is a WPF application — most elements have `AutomationId` properties. To find them:
+
+1. Open **Inspect.exe** from the Windows SDK:
+   ```cmd
+   "C:\Program Files (x86)\Windows Kits\10\bin\x64\inspect.exe"
+   ```
+   > **Alternative:** [Accessibility Insights for Windows](https://accessibilityinsights.io/docs/windows/overview/) provides a friendlier UI.
+
+2. Launch ArcGIS Pro normally (not through WinAppDriver)
+3. In Inspect.exe, hover over UI elements in ArcGIS Pro
+4. Note the **AutomationId**, **Name**, and **ClassName** for each element you want to interact with
+5. Use these identifiers in your test code (see priority order below)
+
+### 2. Element location strategy (priority order)
+
+| Strategy | Example | When to use |
+|---|---|---|
+| AccessibilityId | `driver.findElementByAccessibilityId("RibbonTabMap")` | **Preferred** — most stable across versions |
+| Name | `driver.findElementByName("Map")` | When AutomationId is unavailable |
+| ClassName | `driver.findElementByClassName("Button")` | For generic element types |
+| XPath | `driver.findElementByXPath("//Button[@Name='OK']")` | Last resort — fragile |
+
+### 3. Create the test class
+
+Every test class must:
+- Live in `src/test/java/com/esri/sn/tests/`
+- Extend `WinAppDriverTestBase`
+- Include the `TestResultLogger` rule
+- Have a Javadoc comment explaining what it validates
+
+See the agent (`servicenow-test-developer`) for the full class template and patterns.
 
 ---
 
@@ -272,5 +341,6 @@ The agent will verify your Windows environment before writing tests. See the age
 
 | Date | Change |
 |---|---|
+| 2026-04-07 | Add startup wait (45s default), screenshot-on-failure, compile step, Inspect.exe workflow, sign-in troubleshooting |
 | 2026-04-07 | Initial POC scaffold: Maven project, base class, launch test, result logger, README |
 

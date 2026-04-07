@@ -18,6 +18,7 @@
         <!-- Overridable at runtime: mvn test -Dwinappdriver.url=... -->
         <winappdriver.url>http://127.0.0.1:4723</winappdriver.url>
         <arcgis.pro.exe.path>C:\\Program Files\\ArcGIS\\Pro\\bin\\ArcGISPro.exe</arcgis.pro.exe.path>
+        <arcgis.pro.startup.wait.seconds>45</arcgis.pro.startup.wait.seconds>
     </properties>
 
     <dependencies>
@@ -52,6 +53,7 @@
                     <systemPropertyVariables>
                         <winappdriver.url>${winappdriver.url}</winappdriver.url>
                         <arcgis.pro.exe.path>${arcgis.pro.exe.path}</arcgis.pro.exe.path>
+                        <arcgis.pro.startup.wait.seconds>${arcgis.pro.startup.wait.seconds}</arcgis.pro.startup.wait.seconds>
                     </systemPropertyVariables>
                     <reportsDirectory>${project.basedir}/test-results</reportsDirectory>
                 </configuration>
