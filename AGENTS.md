@@ -8,6 +8,8 @@
 
 This is a **WinAppDriver UI test harness** that automates ArcGIS Pro to verify ServiceNow integration behavior end-to-end. Tests are written in **C# (MSTest v2)** and built with the .NET SDK, following patterns established by the Esri CUIT framework.
 
+The goal of the broader ServiceNow-ArcGIS integration is to surface ServiceNow operational data — incidents, work orders, assets, facilities — on interactive, spatially-aware maps within ArcGIS. ServiceNow records are extracted via the ServiceNow REST API, then transformed by a Custom Data Feed (CDF) service running in ArcGIS Server into an ArcGIS-compatible Feature Service. Records are streamed as dynamic features and aligned to indoor floor plans using building, level, and space identifiers. This test harness validates that integration from the ArcGIS Pro client perspective.
+
 **What we test:**
 - **CDF integration** — Custom Data Feed feature layers visible in ArcGIS Pro maps (query results, attribute fidelity, spatial accuracy)
 - **ILL integration** — Indoor Location Loader geoprocessing tool execution within ArcGIS Pro (parameter validation, layer output, ServiceNow write-back verification)
@@ -17,6 +19,28 @@ This is a **WinAppDriver UI test harness** that automates ArcGIS Pro to verify S
 - ServiceNow REST API directly (covered by CDF unit tests in the integration repo)
 - ILL Python logic directly (covered by `ill/tests/` in the integration repo)
 - UIB (separate team, out of scope)
+
+### Integration Goals
+
+- Provide read-only feature access from live ServiceNow data into ArcGIS clients (Pro, web maps, dashboards)
+- Expose ServiceNow business objects (Asset, Configuration Item, Task and their subclasses) as point-geometry feature layers using location coordinates from `cmn_location`
+- Support an incremental ArcGIS `/query` capability set (attribute filters, field projection, paging, spatial envelope intersects)
+- Deliver a deployable `.cdpk` provider package for ArcGIS Enterprise 11.1+
+
+### Integration Non-Goals
+
+- Editing / write-back to ServiceNow (create, update, delete)
+- Full ArcGIS `/query` surface area (statistics, distinct, groupBy, advanced spatial relations)
+- Polygon or line geometry support
+- API Key for ServiceNow auth (MVP uses basic auth)
+
+### Key Technology References
+
+- [ServiceNow REST API](https://www.servicenow.com/docs/r/api-reference/api-implementation-reference.html)
+- [ArcGIS Enterprise Custom Data Feeds](https://developers.arcgis.com/enterprise-sdk/guide/custom-data-feeds/)
+- [ArcGIS Pro Custom Geoprocessing Tool](https://pro.arcgis.com/en/pro-app/latest/help/analysis/geoprocessing/basics/use-a-custom-geoprocessing-tool.htm)
+- [Floor Aware Maps](https://pro.arcgis.com/en/pro-app/latest/help/data/indoors/floor-aware-maps.htm)
+- [Indoors Viewer](https://doc.arcgis.com/en/indoors/latest/viewer/introduction-to-indoor-viewer.htm)
 
 ### Relationship to Other Repos
 
@@ -275,10 +299,20 @@ PR titles follow: `(feat|fix|cicd|chore)/<issue-number>-short-description`
 - Cross-reference integration repo issues when applicable: `Related: EsriPS/ServiceNow_Esri_Integration#<number>`
 
 ### Git Commit Message Format
-Follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+Follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) with an optional scope for the area of the project being changed. Scopes help identify which part of the project a commit relates to:
+- `cdf` — CDF-related test code
+- `ill` — ILL-related test code
+- `base` — shared base classes or TestHelpers
+- `pom` — Page Object Model classes
+- `deps` — dependency updates
+- `docs` — documentation changes
+- `all` — changes spanning multiple areas
+
+Examples:
 - `feat(cdf): add feature layer visibility test`
 - `fix(base): increase implicit wait for slow environments`
 - `chore(deps): update Appium.WebDriver NuGet package`
+- `docs(all): update AGENTS.md with integration goals`
 
 ---
 
@@ -286,12 +320,41 @@ Follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
 
 ### Shared Standards (All Code)
 
-- All code **must** use meaningful variable and function names
+These rules apply to **every file in the repository**, regardless of language. Adapted from the [integration repo coding standards](https://github.com/EsriPS/ServiceNow_Esri_Integration).
+
+#### MUST have
+
+- Git **must** be used for version control and code management
+- All code **must** use meaningful variable and function names (e.g., `featureLayerName` not `fln`, `verifyLayerLoadsFromCdfService` not `test1`)
 - All tests **must** pass before merging
 - All code **must** be reviewed by at least one other developer before merging
 - When providing credentials or passwords, **must** use the placeholder "ask a ServiceNow Integration Team member" instead of actual values
-- Exception handling **should** be used to gracefully handle test setup/teardown failures
-- Follow DRY, KISS, YAGNI, and Single Responsibility principles
+- Each section of related code **must** be documented
+- Each public class/method and their parameters **must** have documentation comments (`/// <summary>` in C#)
+
+#### SHOULD have
+
+- Code **should** avoid using global variables whenever possible
+- Exception handling **should** be used to gracefully handle errors, especially test setup/teardown failures
+- Dependencies **should** be updated regularly to ensure security and compatibility
+- The following principles **should** be followed:
+  - **Single Responsibility** — each class/method does one thing well
+  - **DRY** (Don't Repeat Yourself) — extract shared logic into helpers/POM classes
+  - **KISS** (Keep It Simple Stupid) — prefer clarity over cleverness
+  - **YAGNI** (You Aren't Gonna Need It) — don't build what isn't needed yet
+  - **DMMT** (Don't Make Me Think) — code should be self-explanatory
+  - **KIM** (Keep It Maintainable) — write for the next developer, not just today
+  - **APO** (Avoid Premature Optimization) — correctness before performance
+  - **SOC** (Separation of Concerns) — POM classes vs test logic vs utilities
+
+#### COULD have
+
+- Complicated or hard-to-read code **could** have inline comments, however the code should be refactored to be more readable if possible
+
+#### WON'T have
+
+- Code **won't** have unnecessary code duplication
+- Code **won't** have unnecessary comments which add nothing to the code
 
 ### C# / MSTest Standards
 
@@ -486,4 +549,4 @@ All agents **must** follow this protocol before proceeding with any task that de
 
 - Esri approved AI tools and usage guidelines
 - AI-generated code must meet same standards as human-written code
-- All AI-generated code must be read, understood, and tested by the person employing it
+- All (every line of) AI-generated code must be read, understood, and tested by the person employing it — responsibility stays with them
