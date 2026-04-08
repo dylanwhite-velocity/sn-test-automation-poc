@@ -227,6 +227,8 @@ sn-test-automation-poc/
 
 All test execution requires **Windows** with ArcGIS Pro installed. WinAppDriver is started programmatically by `TestEnvironment.AssemblyInitialize`.
 
+**Always use `--settings test.runsettings`** — this ensures standardized output: a TRX report, a Markdown report, and console output are generated automatically on every run.
+
 ```cmd
 :: Restore NuGet packages
 dotnet restore
@@ -234,30 +236,38 @@ dotnet restore
 :: Build (verify compilation, no test execution)
 dotnet build
 
-:: Run all tests
-dotnet test
-
-:: Run all tests with detailed output
-dotnet test --logger "console;verbosity=detailed"
-
-:: Run tests with specific runsettings
+:: Run all tests (reports auto-generated in TestResults/)
 dotnet test --settings test.runsettings
 
 :: Run only CDF tests (by filter)
-dotnet test --filter "TestCategory=CDF"
+dotnet test --filter "TestCategory=CDF" --settings test.runsettings
 
 :: Run only ILL tests (by filter)
-dotnet test --filter "TestCategory=ILL"
+dotnet test --filter "TestCategory=ILL" --settings test.runsettings
 
 :: Run a specific test class
-dotnet test --filter "FullyQualifiedName~CdfFeatureLayerTests"
+dotnet test --filter "FullyQualifiedName~CdfFeatureLayerTests" --settings test.runsettings
 
 :: Run a specific test method
-dotnet test --filter "FullyQualifiedName~CdfFeatureLayerTests.VerifyLayerLoadsFromCdfService"
-
-:: Generate TRX report
-dotnet test --logger "trx;LogFileName=results.trx"
+dotnet test --filter "FullyQualifiedName~CdfFeatureLayerTests.VerifyLayerLoadsFromCdfService" --settings test.runsettings
 ```
+
+### Test Reports (Automatic)
+
+Every test run with `--settings test.runsettings` produces these artifacts in `TestResults/`:
+
+| File | Format | Audience |
+|---|---|---|
+| `TestResults.trx` | XML (TRX) | CI/CD pipelines, Visual Studio import |
+| `TestReport_<timestamp>.md` | Markdown | Managers, stakeholders, GitHub PRs — renders with ✔️/❌ pass/fail, durations, pass rate |
+
+The Markdown report includes:
+- Overall pass/fail status with pass rate percentage
+- Run duration and date range
+- Per-test results with ✔️/❌ status and duration
+- Error messages for any failures
+
+To share with non-technical stakeholders: open the `.md` file in VS Code preview, paste into a GitHub issue/PR, or use any Markdown viewer.
 
 ### Test Run Settings (test.runsettings)
 
@@ -270,6 +280,21 @@ dotnet test --logger "trx;LogFileName=results.trx"
     <TargetPlatform>x64</TargetPlatform>
     <TestSessionTimeout>36000000</TestSessionTimeout>
   </RunConfiguration>
+  <LoggerRunSettings>
+    <Loggers>
+      <Logger friendlyName="trx">
+        <Configuration>
+          <LogFileName>TestResults.trx</LogFileName>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="liquid.md" />
+      <Logger friendlyName="console">
+        <Configuration>
+          <Verbosity>normal</Verbosity>
+        </Configuration>
+      </Logger>
+    </Loggers>
+  </LoggerRunSettings>
   <MSTest>
     <CaptureTraceOutput>True</CaptureTraceOutput>
     <DeploymentEnabled>True</DeploymentEnabled>
@@ -537,12 +562,13 @@ All agents **must** follow this protocol before proceeding with any task that de
 
 **Workflow:**
 1. Verify the Windows environment (ArcGIS Pro installed, Developer Mode enabled, WinAppDriver installed)
-2. Run `dotnet test` (or with `--filter` for a subset)
-3. Report results: passed/failed count, failure details, screenshot locations in `TestResults/`
-4. If tests fail, examine the failure output, screenshots, and relevant source to diagnose the root cause
+2. Run `dotnet test --settings test.runsettings` (with `--filter` for a subset) — **always include `--settings test.runsettings`** to get standardized reports
+3. Report results: passed/failed count, failure details, and note the report files in `TestResults/` (TRX + Markdown)
+4. If tests fail, examine the failure output, Markdown report, screenshots, and relevant source to diagnose the root cause
 5. Distinguish between test bugs (our code), POM bugs (element IDs changed), and integration bugs (CDF/ILL behavior changed)
 
 **Rules:**
+- **Always use `--settings test.runsettings`** when running tests — this ensures TRX and Markdown reports are auto-generated
 - Never modify test files or source code unless explicitly asked
 - Report the exact error output — do not summarize away details
 - For environment issues (WinAppDriver not installed, Pro not found), diagnose and provide the fix

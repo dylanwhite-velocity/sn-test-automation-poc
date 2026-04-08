@@ -6,6 +6,21 @@
     <TargetPlatform>x64</TargetPlatform>
     <TestSessionTimeout>36000000</TestSessionTimeout>
   </RunConfiguration>
+  <LoggerRunSettings>
+    <Loggers>
+      <Logger friendlyName="trx">
+        <Configuration>
+          <LogFileName>TestResults.trx</LogFileName>
+        </Configuration>
+      </Logger>
+      <Logger friendlyName="liquid.md" />
+      <Logger friendlyName="console">
+        <Configuration>
+          <Verbosity>normal</Verbosity>
+        </Configuration>
+      </Logger>
+    </Loggers>
+  </LoggerRunSettings>
   <MSTest>
     <CaptureTraceOutput>True</CaptureTraceOutput>
     <DeploymentEnabled>True</DeploymentEnabled>
