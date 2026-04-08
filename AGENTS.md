@@ -48,7 +48,7 @@ The goal of the broader ServiceNow-ArcGIS integration is to surface ServiceNow o
 |---|---|
 | [`EsriPS/ServiceNow_Esri_Integration`](https://github.com/EsriPS/ServiceNow_Esri_Integration) | Source code for CDF (JS) and ILL (Python). Unit tests, linting, documentation. |
 | [`sn-test-automation-poc`](https://github.com/dylanwhite-velocity/sn-test-automation-poc) | **This repo.** End-to-end UI tests validating CDF/ILL through ArcGIS Pro. |
-| CUIT (internal Esri) | Canonical ArcGIS Pro UI test framework. Our patterns are derived from this. |
+| CUIT (`../cuit`) | Canonical ArcGIS Pro UI test framework. Cloned as a sibling directory. **Always check here first before writing new code.** Key paths: `UITestingHelpers/ProApplication/` (POM classes), `UITestingHelpers/Utilities/` (utilities), `ArcGISGeoProcessingUITests/` (GP patterns), `ArcGISIndoorsUITests/` (indoor tests). |
 
 When CDF or ILL behavior changes in the integration repo, corresponding test cases here may need updates. Cross-reference PRs by linking to the integration repo issue number.
 
@@ -391,6 +391,7 @@ These rules apply to **every file in the repository**, regardless of language. A
 
 ### Page Object Model (POM) Standards
 
+- **Check CUIT first** — before creating a new POM class, check `../cuit/UITestingHelpers/UITestingHelpers/ProApplication/` for an existing implementation to reuse or adapt
 - POM classes live in `ServiceNow.TestHelpers/ProApplication/`
 - Every POM class receives an `Application` instance (or its parent POM) via constructor
 - POM classes encapsulate element location, waits, and retries internally
@@ -512,14 +513,15 @@ All agents **must** follow this protocol before proceeding with any task that de
 **Trigger:** Asked to write a new test case, extend coverage, or create test scaffolding for a CDF/ILL feature.
 
 **Workflow:**
-1. Read the existing test base classes and POM classes to understand what's already available
-2. Identify which CDF/ILL feature is being tested and locate the relevant source in the integration repo
-3. Determine which ArcGIS Pro UI elements are involved — check existing POM classes first, then Inspect.exe
-4. If new POM classes are needed, create them in `ServiceNow.TestHelpers/ProApplication/` following CUIT patterns
-5. Create the test class in the appropriate subdirectory (`CDF/` or `ILL/`)
-6. Ensure the test extends `ServiceNowTestBase` and uses `[TestMethod]`, `[TestCategory]`, `[Description]`
-7. Use POM classes for all UI interaction — never raw `FindElement*` in test methods
-8. Verify the test compiles with `dotnet build`
+1. **Check the CUIT repo first** — before writing any new POM class, utility, or test pattern, search the sibling `../cuit` repo for existing implementations. Key locations: `UITestingHelpers/ProApplication/Pane/` (panes), `UITestingHelpers/ProApplication/Ribbon/` (ribbon tabs), `UITestingHelpers/Utilities/` (utilities), `UITestingHelpers/Controls/Extensions/` (control helpers). Reuse or adapt CUIT code where possible; only write from scratch when no CUIT equivalent exists.
+2. Read the existing test base classes and POM classes to understand what's already available
+3. Identify which CDF/ILL feature is being tested and locate the relevant source in the integration repo
+4. Determine which ArcGIS Pro UI elements are involved — check existing POM classes first, then Inspect.exe
+5. If new POM classes are needed, create them in `ServiceNow.TestHelpers/ProApplication/` following CUIT patterns
+6. Create the test class in the appropriate subdirectory (`CDF/` or `ILL/`)
+7. Ensure the test extends `ServiceNowTestBase` and uses `[TestMethod]`, `[TestCategory]`, `[Description]`
+8. Use POM classes for all UI interaction — never raw `FindElement*` in test methods
+9. Verify the test compiles with `dotnet build`
 
 **Rules:**
 - Every test must have XML doc comments explaining what integration behavior it validates
