@@ -391,7 +391,7 @@ These rules apply to **every file in the repository**, regardless of language. A
 
 ### Page Object Model (POM) Standards
 
-- **Check CUIT first** — before creating a new POM class, check `../cuit/UITestingHelpers/UITestingHelpers/ProApplication/` for an existing implementation to reuse or adapt
+- **Check CUIT first** — before creating a new POM class, check `../cuit/UITestingHelpers/UITestingHelpers/ProApplication/` for an existing implementation. If it exists, **copy the CUIT file into our repo and edit it** to fit our needs (adjust namespaces, trim unused methods, adapt for ServiceNow-specific behavior). Only write from scratch when no CUIT equivalent exists.
 - POM classes live in `ServiceNow.TestHelpers/ProApplication/`
 - Every POM class receives an `Application` instance (or its parent POM) via constructor
 - POM classes encapsulate element location, waits, and retries internally
@@ -513,7 +513,7 @@ All agents **must** follow this protocol before proceeding with any task that de
 **Trigger:** Asked to write a new test case, extend coverage, or create test scaffolding for a CDF/ILL feature.
 
 **Workflow:**
-1. **Check the CUIT repo first** — before writing any new POM class, utility, or test pattern, search the sibling `../cuit` repo for existing implementations. Key locations: `UITestingHelpers/ProApplication/Pane/` (panes), `UITestingHelpers/ProApplication/Ribbon/` (ribbon tabs), `UITestingHelpers/Utilities/` (utilities), `UITestingHelpers/Controls/Extensions/` (control helpers). Reuse or adapt CUIT code where possible; only write from scratch when no CUIT equivalent exists.
+1. **Check the CUIT repo first** — before writing any new POM class, utility, or test pattern, search the sibling `../cuit` repo for existing implementations. Key locations: `UITestingHelpers/ProApplication/Pane/` (panes), `UITestingHelpers/ProApplication/Ribbon/` (ribbon tabs), `UITestingHelpers/Utilities/` (utilities), `UITestingHelpers/Controls/Extensions/` (control helpers). If the functionality already exists in CUIT, **copy the file into our repo and edit it as necessary** — adjust namespaces, remove unused methods, adapt for ServiceNow-specific needs. Only write from scratch when no CUIT equivalent exists.
 2. Read the existing test base classes and POM classes to understand what's already available
 3. Identify which CDF/ILL feature is being tested and locate the relevant source in the integration repo
 4. Determine which ArcGIS Pro UI elements are involved — check existing POM classes first, then Inspect.exe
