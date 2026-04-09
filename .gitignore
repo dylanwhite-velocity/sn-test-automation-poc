@@ -40,6 +40,7 @@ TestResults/
 *.tmp
 *.cache
 *.DotSettings.user
+*.env
 
 # OS files
 .DS_Store
