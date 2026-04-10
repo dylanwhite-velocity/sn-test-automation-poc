@@ -7,6 +7,9 @@ namespace ServiceNow.TestHelpers.ProApplication.Pane;
 /// Page Object for the Geoprocessing pane in ArcGIS Pro.
 /// Used for ILL (Indoor Location Loader) tool execution testing.
 /// Mirrors the CUIT <c>Geoprocessing</c> pane class.
+///
+/// <para>After searching for and opening a tool, use <see cref="GetToolDialog"/>
+/// to get a <see cref="GpToolDialog"/> for parameter interaction.</para>
 /// </summary>
 public class GeoprocessingPane : PaneBase
 {
@@ -22,6 +25,47 @@ public class GeoprocessingPane : PaneBase
     /// </summary>
     public GeoprocessingPane(Application app) : base(app, GeoprocessingPaneId)
     {
+    }
+
+    /// <summary>
+    /// The currently loaded tool dialog, or <c>null</c> if no tool is open.
+    /// Populated by <see cref="GetToolDialog"/>.
+    /// </summary>
+    public GpToolDialog? ToolDialogPage { get; private set; }
+
+    /// <summary>
+    /// Gets or creates a <see cref="GpToolDialog"/> for the currently loaded GP tool.
+    /// The tool must already be loaded in the pane (via <see cref="SearchForTool"/>).
+    /// </summary>
+    /// <returns>A <see cref="GpToolDialog"/> wrapping the tool dialog.</returns>
+    /// <exception cref="InvalidOperationException">If no tool dialog is loaded.</exception>
+    public GpToolDialog GetToolDialog()
+    {
+        if (PaneElement == null)
+            throw new InvalidOperationException("Geoprocessing pane is not open.");
+
+        var toolDialogElement = WaitingUtils.RetryAssignmentUntilSuccess(
+            () =>
+            {
+                try
+                {
+                    return PaneElement.FindElementByAccessibilityId(GpToolDialog.ToolDialogAutomationId);
+                }
+                catch
+                {
+                    // Fallback: search from MainWindow
+                    return App.MainWindow.FindElementByAccessibilityId(GpToolDialog.ToolDialogAutomationId);
+                }
+            },
+            timeoutMs: 15000,
+            debugInfo: "GeoprocessingPane.GetToolDialog — looking for gp_tool_dialog");
+
+        if (toolDialogElement == null)
+            throw new InvalidOperationException(
+                "GP tool dialog not found. Ensure a tool has been opened with SearchForTool().");
+
+        ToolDialogPage = new GpToolDialog(App, toolDialogElement);
+        return ToolDialogPage;
     }
 
     /// <summary>

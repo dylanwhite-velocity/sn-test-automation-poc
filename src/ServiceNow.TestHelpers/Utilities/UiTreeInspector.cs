@@ -103,6 +103,88 @@ public static class UiTreeInspector
     }
 
     /// <summary>
+    /// Inspects a single element with verbose accessibility properties.
+    /// Captures all properties relevant to UI automation: AutomationId, Name,
+    /// ClassName, ControlType, IsKeyboardFocusable, IsOffscreen, and BoundingRectangle.
+    /// Designed for accessibility investigations (e.g., diagnosing missing AutomationIds).
+    /// </summary>
+    /// <param name="element">The element to inspect.</param>
+    /// <returns>A multi-line string with detailed accessibility properties.</returns>
+    public static string InspectElementVerbose(AppiumWebElement element)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"  ClassName:            {SafeGetAttribute(element, "ClassName")}");
+        sb.AppendLine($"  AutomationId:         {SafeGetAttribute(element, "AutomationId")}");
+        sb.AppendLine($"  Name:                 {SafeGetAttribute(element, "Name")}");
+        sb.AppendLine($"  LocalizedControlType: {SafeGetAttribute(element, "LocalizedControlType")}");
+        sb.AppendLine($"  IsKeyboardFocusable:  {SafeGetAttribute(element, "IsKeyboardFocusable")}");
+        sb.AppendLine($"  IsOffscreen:          {SafeGetAttribute(element, "IsOffscreen")}");
+        sb.AppendLine($"  BoundingRectangle:    {SafeGetAttribute(element, "BoundingRectangle")}");
+        sb.AppendLine($"  IsEnabled:            {SafeGetAttribute(element, "IsEnabled")}");
+        sb.AppendLine($"  HelpText:             {SafeGetAttribute(element, "HelpText")}");
+        sb.AppendLine($"  AccessKey:            {SafeGetAttribute(element, "AccessKey")}");
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Dumps a verbose accessibility tree for a GP tool dialog.
+    /// Each element gets full property details. Designed for
+    /// diagnosing AutomationId availability for Python Toolbox parameters.
+    /// </summary>
+    /// <param name="root">The root element (typically the GP pane or tool dialog).</param>
+    /// <param name="outputPath">Full path to the output text file.</param>
+    /// <returns>The number of elements dumped.</returns>
+    public static int DumpAccessibilityTree(AppiumWebElement root, string outputPath)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("=== Verbose Accessibility Tree Dump ===");
+        sb.AppendLine($"Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        sb.AppendLine(new string('=', 100));
+        sb.AppendLine();
+
+        sb.AppendLine("[ROOT]");
+        sb.AppendLine(InspectElementVerbose(root));
+        var count = 1;
+
+        try
+        {
+            var allDescendants = root.FindElementsByXPath("//*");
+            foreach (var element in allDescendants)
+            {
+                try
+                {
+                    sb.AppendLine($"[Element {count}]");
+                    sb.AppendLine(InspectElementVerbose(element));
+                    count++;
+                }
+                catch
+                {
+                    sb.AppendLine($"[Element {count}] ERROR: Could not inspect");
+                    count++;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine($"[ERROR] Failed to enumerate descendants: {ex.Message}");
+        }
+
+        sb.AppendLine(new string('=', 100));
+        sb.AppendLine($"Total elements: {count}");
+
+        var directory = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        File.WriteAllText(outputPath, sb.ToString());
+        Trace.WriteLine($"[UiTreeInspector] Verbose dump: {count} elements to: {outputPath}");
+
+        return count;
+    }
+
+    /// <summary>
     /// Searches all descendant elements for those matching a predicate.
     /// Uses <c>FindElementsByXPath("//*")</c> for a flat descendant search.
     /// </summary>

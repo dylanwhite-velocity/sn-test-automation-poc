@@ -58,6 +58,22 @@ When CDF or ILL behavior changes in the integration repo, corresponding test cas
 
 Our test architecture mirrors the patterns from the Esri CUIT framework. Understanding CUIT is essential for writing tests correctly.
 
+### CUIT Reference Repository
+
+The CUIT framework is cloned as a sibling directory. **Always check here before writing new POM classes or test patterns.**
+
+**Location:** `C:\Users\dyl13740\ServiceNowIntegration\cuit\UITestingHelpers\UITestingHelpers\`
+
+| Path | Contents |
+|---|---|
+| `ProApplication/` | POM classes for all ArcGIS Pro UI elements |
+| `ProApplication/Pane/` | Dockable pane POMs (GP, Contents, Catalog, etc.) |
+| `ProApplication/Ribbon/` | Ribbon tab POMs |
+| `Utilities/` | Shared utilities (wait, screenshot, app lifecycle) |
+| `Controls/Extensions/` | WPF control helpers and extension methods |
+| `CustomControls/gp_tool_dialog.cs` | The canonical GP parameter location algorithm |
+| `CustomControls/gp_tool_dialogExtensions.cs` | SetComboBoxValue, FindGPByClassName, etc. |
+
 ### Key CUIT Concepts
 
 | CUIT Component | Our Equivalent | Purpose |
@@ -99,6 +115,25 @@ var gp = analysisTab.OpenGeoprocessing();
 ```
 
 POM classes live in the `ServiceNow.TestHelpers` project and encapsulate all element location logic, waits, and retries.
+
+#### POM Class Hierarchy
+
+```
+ActiProBase                    → Holds WinAppDriver + MainWindow
+  ├── Application              → ArcGIS Pro application wrapper
+  ├── RibbonTabBase            → Base for ribbon tabs (tab lookup, EnableTab)
+  │     ├── AnalysisTab        → Analysis ribbon tab → opens GeoprocessingPane
+  │     ├── ViewTab            → View ribbon tab → opens CatalogPane
+  │     ├── MapTab             → Map ribbon tab (stub)
+  │     └── InsertTab          → Insert ribbon tab (stub)
+  └── PaneBase                 → Base for dockable panes
+        ├── CatalogPane        → Catalog pane (toolbox tree, folder connections)
+        ├── ContentsPane       → Contents pane (layer list)
+        └── GeoprocessingPane  → Geoprocessing pane (for ILL)
+              └── GpToolDialog → Loaded GP tool (parameter map, set/get, run)
+```
+
+All ribbon tabs extend `RibbonTabBase` (handles ribbon lookup and tab activation via `EnableTab()`). Panes extend `PaneBase`. Constructors always take `Application`.
 
 ### Assembly Lifecycle (TestEnvironment)
 
@@ -166,35 +201,42 @@ sn-test-automation-poc/
 │   ├── ServiceNow.TestHelpers/                       # Shared helper library (our UITestingHelpers)
 │   │   ├── ServiceNow.TestHelpers.csproj
 │   │   ├── Base/
-│   │   │   └── ServiceNowTestClassBase.cs            # Base test class (like UITestClassBase)
+│   │   │   └── ServiceNowTestClassBase.cs            # Base test class
 │   │   ├── ProApplication/
-│   │   │   ├── ActiProBase.cs                        # Root POM base: WinAppDriver + MainWindow
-│   │   │   ├── Application.cs                        # ArcGIS Pro application wrapper
+│   │   │   ├── ActiProBase.cs                        # Root POM: WinAppDriver + MainWindow
+│   │   │   ├── Application.cs                        # ArcGIS Pro app wrapper
 │   │   │   ├── Ribbon/
-│   │   │   │   ├── RibbonTabBase.cs                  # Base for all ribbon tabs
-│   │   │   │   ├── AnalysisTab.cs                    # Analysis ribbon tab
+│   │   │   │   ├── RibbonTabBase.cs                  # Base for all ribbon tabs (tab lookup, EnableTab)
+│   │   │   │   ├── AnalysisTab.cs                    # Analysis tab → opens GeoprocessingPane
+│   │   │   │   ├── ViewTab.cs                        # View tab → opens CatalogPane
 │   │   │   │   ├── MapTab.cs                         # Map ribbon tab (stub)
 │   │   │   │   └── InsertTab.cs                      # Insert ribbon tab (stub)
 │   │   │   └── Pane/
-│   │   │       ├── PaneBase.cs                       # Base for all dockable panes
+│   │   │       ├── PaneBase.cs                       # Base for all panes
+│   │   │       ├── CatalogPane.cs                    # Catalog pane (toolbox/folder tree navigation)
 │   │   │       ├── ContentsPane.cs                   # Contents pane (layer list)
-│   │   │       └── GeoprocessingPane.cs              # Geoprocessing pane (for ILL)
+│   │   │       ├── GeoprocessingPane.cs              # GP pane (tool search, ToolDialogPage)
+│   │   │       └── GpToolDialog.cs                   # GP tool dialog (parameter map, set/get values)
 │   │   └── Utilities/
 │   │       ├── ApplicationUtils.cs                   # Start/stop Pro, session management
 │   │       ├── WinAppDriverUtils.cs                  # Start/stop WinAppDriver
 │   │       ├── WaitingUtils.cs                       # Retry-until-success patterns
-│   │       └── ScreenCaptureUtils.cs                 # Screenshot capture
+│   │       ├── ScreenCaptureUtils.cs                 # Screenshot capture
+│   │       └── UiTreeInspector.cs                    # Accessibility tree dump (element discovery)
 │   │
 │   └── ServiceNow.Integration.Tests/                 # Test project
 │       ├── ServiceNow.Integration.Tests.csproj
 │       ├── TestEnvironment.cs                        # [AssemblyInitialize/Cleanup]
 │       ├── ServiceNowTestBase.cs                     # Team-specific test base
-│       └── Smoke/
-│           └── ArcGisProLaunchTests.cs               # Smoke tests (3 tests)
+│       ├── Smoke/                                    # Smoke tests — validates automation chain
+│       │   └── ArcGisProLaunchTests.cs
+│       ├── Discovery/                                # Infrastructure diagnostic tests (not regression)
+│       │   ├── CatalogInspectionTests.cs             # Catalog pane element tree dumps
+│       │   ├── GpParameterAccessibilityTests.cs      # GP parameter accessibility analysis
+│       │   └── GpParameterLocationTests.cs           # GpToolDialog verification tests
+│       └── ILL/                                      # Indoor Location Loader tests
+│           └── IllToolboxCatalogTests.cs             # ILL toolbox presence + tool discovery
 ```
-
-> **Note:** `CDF/`, `ILL/`, `Dialogs/`, and `View/` directories will be created as tests
-> and POM classes are added. They do not exist yet in the repo.
 
 ### Key directories
 
@@ -205,6 +247,8 @@ sn-test-automation-poc/
 | `src/ServiceNow.TestHelpers/Utilities/` | Shared utilities (wait/retry, screenshots, app lifecycle) |
 | `src/ServiceNow.Integration.Tests/` | Test classes organized by integration area |
 | `src/ServiceNow.Integration.Tests/Smoke/` | Smoke tests validating the automation chain |
+| `src/ServiceNow.Integration.Tests/Discovery/` | Infrastructure diagnostic tests for UI element discovery |
+| `src/ServiceNow.Integration.Tests/ILL/` | Indoor Location Loader integration tests |
 | `TestResults/` | MSTest output — TRX files, logs, screenshots (gitignored) |
 
 ---
@@ -437,6 +481,90 @@ When locating ArcGIS Pro UI elements inside POM classes, use this priority order
 
 Use **Inspect.exe** (`C:\Program Files (x86)\Windows Kits\10\bin\x64\inspect.exe`) or **Accessibility Insights for Windows** to discover element identifiers.
 
+> ⚠️ **Caveat:** Accessibility Insights may not show all UIA properties for some elements. GP parameter Text labels have AutomationId visible to WinAppDriver but NOT to Accessibility Insights. When in doubt, verify with `UiTreeInspector` (see Discovery Tests below).
+
+### ArcGIS Pro UI Element Reference
+
+Common AutomationIds and element identifiers:
+
+| Element | Property | Value |
+|---|---|---|
+| Main window | AutomationId | `ArcGISProMainWindow` |
+| Ribbon | AutomationId | `NewRibbon` |
+| Ribbon tab headers | ClassName | `RibbonTabHeader` |
+| Analysis tab | AutomationId | contains `nalysisTab` |
+| GP button | AutomationId | `esri_geoprocessing_toolsButton` |
+
+### GP Tool Parameter Reference
+
+#### ILL Parameter AutomationIds
+
+The ILL Python Toolbox (`.pyt`) defines 7 parameters. ArcGIS Pro generates WPF UI elements from `arcpy.Parameter` definitions. The `AutomationId` is set on the **Text label** element (not the input control).
+
+> **Important:** Confirmed via WinAppDriver diagnostic tests. Accessibility Insights may NOT display AutomationId for some elements — always use `UiTreeInspector` diagnostic tests or WinAppDriver for definitive property verification.
+
+| # | `arcpy.Parameter.displayName` | `arcpy.Parameter.name` → **AutomationId** | Input ClassName | Input AutomationId |
+|---|---|---|---|---|
+| 0 | Input Facility Features | `in_facility_features` | ComboBox | (empty) |
+| 1 | Input Level Features | `in_level_features` | ComboBox | (empty) |
+| 2 | Input Unit Features | `in_unit_features` | ComboBox | (empty) |
+| 3 | ServiceNow REST URL | `servicenow_rest_url` | ComboBox | (empty) |
+| 4 | ServiceNow Username | `servicenow_username` | ComboBox | (empty) |
+| 5 | ServiceNow Password | `servicenow_password` | PasswordBox | (empty) |
+| 6 | Keep Duplicate Value | `keep_duplicate_value` | CheckBox | (empty) |
+
+#### GP Parameter Element Structure (Per Parameter)
+
+Each GP tool parameter follows this repeating structure in the WPF visual tree:
+
+```
+Image  (AutomationId: "ParameterStatus")     ← status icon (required/error/info)
+Text   (AutomationId: "<param_name>")         ← label — key for the parameter map
+[Button (Name: "<displayName>")]              ← browse button (feature layer params only)
+ComboBox / PasswordBox / CheckBox             ← input control (NO AutomationId)
+```
+
+This pattern is identical for both Python Toolbox (.pyt) and built-in C# GP tools. ComboBox inputs never have meaningful AutomationIds.
+
+> **⚠️ GP parameter input controls do NOT have AutomationId.** The `GpToolDialog` parameter map is the ONLY reliable way to locate them.
+
+#### GpToolDialog (CUIT-Compatible Parameter Location)
+
+`GpToolDialog` (`ServiceNow.TestHelpers/ProApplication/Pane/GpToolDialog.cs`) implements a simplified version of CUIT's `gp_tool_dialog.GetToolPaneControls()`:
+
+1. Get the tool dialog via `GeoprocessingPane.GetToolDialog()`
+2. Walk all descendants of the ScrollViewer inside the tool dialog
+3. When a `Text` element is found → its `AutomationId` = parameter key (= `arcpy.Parameter.name`)
+4. When a `CheckBox` is found → first child Text's `AutomationId` is the key
+5. All other elements are controls for the current parameter
+6. Result: `Dictionary<string, List<AppiumWebElement>>` mapping parameter names to controls
+
+**Key methods:**
+- `SetComboBoxValue(paramName, value)` — click, select all, delete, type, Tab
+- `SetPasswordValue(paramName, value)` — same pattern for PasswordBox
+- `SetCheckBoxValue(paramName, checked)` — toggle if state differs
+- `GetComboBoxValue(paramName)` / `GetCheckBoxValue(paramName)` — read values
+- `FindControlByClassName(paramName, className)` — raw element access
+- `DoesParameterExist(paramName)` / `GetParameterNames()` — discovery
+- `ClickRun()` / `WaitForToolCompletion(timeoutMs)` — execution
+
+### Discovery Tests
+
+The `Discovery/` subdirectory under `ServiceNow.Integration.Tests/` contains infrastructure diagnostic tests. These are **not regression tests** — they investigate UI element structure and accessibility properties to inform POM class development.
+
+| Test Class | Purpose |
+|---|---|
+| `CatalogInspectionTests` | Dumps Catalog pane and ribbon element trees |
+| `GpParameterAccessibilityTests` | Dumps GP tool parameter accessibility properties for ILL and built-in tools |
+| `GpParameterLocationTests` | Verifies `GpToolDialog` parameter map works correctly |
+
+**When to write a Discovery test:**
+- Before creating a new POM class — dump the target element tree to discover AutomationIds
+- When element lookup fails — compare expected vs actual element structure
+- When upgrading ArcGIS Pro — verify existing AutomationIds haven't changed
+
+All Discovery tests use `[TestCategory("Discovery")]`.
+
 ### Test Class Template
 
 ```csharp
@@ -573,6 +701,49 @@ All agents **must** follow this protocol before proceeding with any task that de
 - Report the exact error output — do not summarize away details
 - For environment issues (WinAppDriver not installed, Pro not found), diagnose and provide the fix
 - Note when failures may indicate a regression in the integration repo's CDF or ILL code
+
+---
+
+## TestRail Integration (WIP)
+
+> **Status:** This workflow is work-in-progress. The connection between this repo and TestRail is not automated yet.
+
+Test cases in this repo **must** be documented in the team's [TestRail](https://testrail.esri.com) instance for traceability.
+
+### Current Workflow (Manual)
+
+When writing or updating a test, output a **TestRail-ready summary** for copy into TestRail:
+
+```
+--- TestRail Test Case ---
+Title:        <test name in plain language>
+Section:      <CDF | ILL | Smoke> / <subsection>
+Type:         Automated
+Priority:     Medium
+Preconditions:
+  - <list setup requirements>
+Steps:
+  1. <numbered test steps>
+Expected Result:
+  <what the test asserts>
+Automation:
+  Class:  <fully qualified class name>
+  Method: <method name>
+  Filter: dotnet test --filter "FullyQualifiedName~<ClassName.MethodName>"
+References:   <integration repo issue>
+---
+```
+
+**Rules:**
+- Every new test method must have a corresponding TestRail-ready summary output
+- TestRail section should match the test subdirectory: `CDF/`, `ILL/`, `Smoke/`
+- If a TestRail case ID is known, add it to `[Description]`: `[Description("TR:C12345 — ...")]`
+
+### Future Automation (Planned)
+
+- Explore TestRail API integration to auto-sync test cases and results
+- Map `[TestCategory]` to TestRail sections and `[Description]` URLs to TestRail references
+- Auto-report test run results from TRX output to TestRail runs
 
 ---
 
