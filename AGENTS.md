@@ -74,22 +74,6 @@ The CUIT framework is cloned as a sibling directory. **Always check here before 
 | `CustomControls/gp_tool_dialog.cs` | The canonical GP parameter location algorithm |
 | `CustomControls/gp_tool_dialogExtensions.cs` | SetComboBoxValue, FindGPByClassName, etc. |
 
-### CUIT Reference Repository
-
-The CUIT framework is cloned as a sibling directory. **Always check here before writing new POM classes or test patterns.**
-
-**Location:** `C:\Users\dyl13740\ServiceNowIntegration\cuit\UITestingHelpers\UITestingHelpers\`
-
-| Path | Contents |
-|---|---|
-| `ProApplication/` | POM classes for all ArcGIS Pro UI elements |
-| `ProApplication/Pane/` | Dockable pane POMs (GP, Contents, Catalog, etc.) |
-| `ProApplication/Ribbon/` | Ribbon tab POMs |
-| `Utilities/` | Shared utilities (wait, screenshot, app lifecycle) |
-| `Controls/Extensions/` | WPF control helpers and extension methods |
-| `CustomControls/gp_tool_dialog.cs` | The canonical GP parameter location algorithm |
-| `CustomControls/gp_tool_dialogExtensions.cs` | SetComboBoxValue, FindGPByClassName, etc. |
-
 ### Key CUIT Concepts
 
 | CUIT Component | Our Equivalent | Purpose |
@@ -131,25 +115,6 @@ var gp = analysisTab.OpenGeoprocessing();
 ```
 
 POM classes live in the `ServiceNow.TestHelpers` project and encapsulate all element location logic, waits, and retries.
-
-#### POM Class Hierarchy
-
-```
-ActiProBase                    → Holds WinAppDriver + MainWindow
-  ├── Application              → ArcGIS Pro application wrapper
-  ├── RibbonTabBase            → Base for ribbon tabs (tab lookup, EnableTab)
-  │     ├── AnalysisTab        → Analysis ribbon tab → opens GeoprocessingPane
-  │     ├── ViewTab            → View ribbon tab → opens CatalogPane
-  │     ├── MapTab             → Map ribbon tab (stub)
-  │     └── InsertTab          → Insert ribbon tab (stub)
-  └── PaneBase                 → Base for dockable panes
-        ├── CatalogPane        → Catalog pane (toolbox tree, folder connections)
-        ├── ContentsPane       → Contents pane (layer list)
-        └── GeoprocessingPane  → Geoprocessing pane (for ILL)
-              └── GpToolDialog → Loaded GP tool (parameter map, set/get, run)
-```
-
-All ribbon tabs extend `RibbonTabBase` (handles ribbon lookup and tab activation via `EnableTab()`). Panes extend `PaneBase`. Constructors always take `Application`.
 
 #### POM Class Hierarchy
 
@@ -781,23 +746,3 @@ References:   <integration repo issue>
 - Auto-report test run results from TRX output to TestRail runs
 
 ---
-
-## Team
-
-| Role | Name |
-|------|------|
-| Product Owner | Nick Jones |
-| Lead Dev | Tom Hahka |
-| Dev | Qing Ying Wu |
-| Dev | Yannis Maroufidis |
-| SM/PE | Palak Matta |
-| PE | Dylan White |
-| UIB POC | Gary Knoll |
-
----
-
-## Use of AI in Code
-
-- Esri approved AI tools and usage guidelines
-- AI-generated code must meet same standards as human-written code
-- All (every line of) AI-generated code must be read, understood, and tested by the person employing it — responsibility stays with them
