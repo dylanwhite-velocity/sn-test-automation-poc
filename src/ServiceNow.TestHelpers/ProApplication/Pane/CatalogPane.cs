@@ -180,8 +180,10 @@ public class CatalogPane : PaneBase
     }
 
     /// <summary>
-    /// Expands a tree node by double-clicking it.
-    /// Searches from the main window for WinAppDriver reliability.
+    /// Expands a tree node by selecting it and pressing the Right arrow key.
+    /// This is more reliable than double-click for ArcGIS Pro's Catalog tree,
+    /// especially for Python Toolbox (.pyt) items that require parsing.
+    /// Falls back to double-click if the keyboard approach fails.
     /// </summary>
     /// <param name="nodeName">The display name of the tree node to expand.</param>
     /// <returns><c>true</c> if the node was found and the expand action was performed.</returns>
@@ -198,11 +200,13 @@ public class CatalogPane : PaneBase
 
         if (node == null) return false;
 
-        // Double-click to expand the tree node
-        DoubleClick(node);
+        // Click to select, then Right arrow to expand (more reliable than DoubleClick)
+        node.Click();
+        WaitingUtils.Wait(500);
+        node.SendKeys(OpenQA.Selenium.Keys.ArrowRight);
 
-        // Allow time for child nodes to load
-        WaitingUtils.Wait(2000);
+        // Python Toolboxes (.pyt) require parsing, allow extra time
+        WaitingUtils.Wait(3000);
 
         return true;
     }

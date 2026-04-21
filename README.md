@@ -12,8 +12,7 @@ This project automates ArcGIS Pro through [WinAppDriver](https://github.com/micr
 - **ILL** — Indoor Location Loader geoprocessing tool execution in ArcGIS Pro (parameters, execution, results)
 - **ArcGIS Pro UI workflows** — navigation, pane interaction, ribbon commands for CDF/ILL features
 
-> **Cross-platform note:** Test code is authored on macOS and executed on Windows.
-> The project compiles on any OS, but tests only run on Windows where WinAppDriver and ArcGIS Pro are available.
+> **Cross-platform note:** Test code can be authored on any OS, but tests only run on Windows where WinAppDriver and ArcGIS Pro are available.
 
 ---
 
@@ -165,11 +164,14 @@ dotnet test --settings test.runsettings
 :: Smoke tests only
 dotnet test --filter "TestCategory=Smoke" --settings test.runsettings
 
-:: CDF tests only
-dotnet test --filter "TestCategory=CDF" --settings test.runsettings
-
 :: ILL tests only
 dotnet test --filter "TestCategory=ILL" --settings test.runsettings
+
+:: Discovery tests only
+dotnet test --filter "TestCategory=Discovery" --settings test.runsettings
+
+:: CDF tests only (future)
+dotnet test --filter "TestCategory=CDF" --settings test.runsettings
 ```
 
 ### Run a specific test class or method
@@ -186,12 +188,6 @@ dotnet test --filter "FullyQualifiedName~ArcGisProLaunchTests.VerifyArcGisProLau
 
 ```cmd
 dotnet test --settings test.runsettings --logger "console;verbosity=detailed"
-```
-
-### Generate a TRX report
-
-```cmd
-dotnet test --settings test.runsettings --logger "trx;LogFileName=results.trx"
 ```
 
 ### Override runsettings parameters
@@ -218,18 +214,70 @@ Or edit `test.runsettings` directly:
 
 ---
 
+## Test Inventory
+
+**16 tests** across 4 categories. Latest run: **16/16 passed (100%)**.
+
+### Smoke (3 tests) — `ArcGisProLaunchTests`
+
+Validates the automation chain: WinAppDriver → ArcGIS Pro → UI element access.
+
+| Test | Description |
+|---|---|
+| `VerifyArcGisProLaunches` | Pro launches via WinAppDriver, main window is accessible |
+| `VerifyMainWindowHasElements` | UI element tree is accessible (ribbon, status bar, etc.) |
+| `VerifyApplicationIsResponsive` | Pro responds to UI queries after launch |
+
+### ILL (7 tests) — `IllToolboxCatalogTests`, `GpParameterLocationTests`
+
+Validates ILL Python Toolbox visibility, GP tool dialog parameter access, and value set/get.
+
+| Test | Description |
+|---|---|
+| `VerifyToolboxExistsInCatalog` | ILL toolbox visible under Catalog → Toolboxes |
+| `VerifyIndoorsLocationLoaderOpensFromCatalog` | ILL tool opens in GP pane from Catalog |
+| `VerifyGetToolPaneControlsFindsAllIllParameters` | GpToolDialog locates all 7 ILL parameters |
+| `VerifySetComboBoxValueOnStringParameters` | Set/get ComboBox values (URL, username) |
+| `VerifySetCheckBoxValueOnBooleanParameter` | Set/get CheckBox value (keep duplicates) |
+| `VerifySetPasswordValueOnPasswordParameter` | Set PasswordBox value (ServiceNow password) |
+| `VerifyGetParameterNamesReturnsExpectedList` | Parameter names match ILL `.pyt` definition |
+
+### Discovery (6 tests) — `CatalogInspectionTests`, `GpParameterAccessibilityTests`
+
+Infrastructure diagnostics — dump UI element trees and accessibility properties for POM development. Not regression tests.
+
+| Test | Description |
+|---|---|
+| `DumpMainWindowTree` | Dumps ArcGIS Pro main window element tree |
+| `DumpCatalogPaneTree` | Dumps Catalog pane tree (Toolboxes node) |
+| `DumpRibbonTree` | Dumps ribbon element tree (View tab, buttons) |
+| `DiagnoseCatalogToolNavigation` | Traces full Catalog → Toolbox → Tool navigation path |
+| `DumpIllToolParameterAccessibility` | Dumps ILL GP parameter accessibility properties |
+| `DumpBuiltinToolParameterAccessibility` | Dumps built-in GP tool (Buffer) properties for comparison |
+
+### Running by category
+
+```cmd
+dotnet test --filter "TestCategory=Smoke" --settings test.runsettings
+dotnet test --filter "TestCategory=ILL" --settings test.runsettings
+dotnet test --filter "TestCategory=Discovery" --settings test.runsettings
+```
+
+> **Run time:** Full suite takes ~35 minutes. Each test launches and kills ArcGIS Pro independently (~2 min per test).
+
+---
+
 ## Test Results
 
-After running tests, results are in:
+After running tests with `--settings test.runsettings`, results are auto-generated in `TestResults/`:
 
-```
-TestResults/
-├── results.trx                              # TRX report (if --logger trx used)
-├── ArcGisProLaunchTests_VerifyArcGis...log  # Per-test trace log
-└── ...Failure.png                           # Auto-captured on test failure
-```
+| File | Format | Purpose |
+|---|---|---|
+| `TestResults.trx` | XML (TRX) | CI/CD pipelines, Visual Studio import |
+| `TestReport_<timestamp>.md` | Markdown | Human-readable — ✔️/❌ per test, durations, pass rate |
+| `*_Failure.png` | PNG screenshot | Auto-captured on test failure by `ServiceNowTestClassBase` |
 
-> **Screenshots on failure:** When a test fails or times out, `ServiceNowTestClassBase` automatically captures a screenshot and attaches it to the test results. Check `TestResults/` for `*_Failure.png` files.
+The Markdown report renders well in VS Code, GitHub PRs, or any Markdown viewer — useful for sharing with stakeholders.
 
 ---
 
@@ -255,24 +303,34 @@ sn-test-automation-poc/
     │   │   ├── Ribbon/
     │   │   │   ├── RibbonTabBase.cs                  # Base for ribbon tabs
     │   │   │   ├── AnalysisTab.cs                    # Analysis tab → Geoprocessing
+    │   │   │   ├── ViewTab.cs                        # View tab → Catalog pane
     │   │   │   ├── MapTab.cs                         # Map tab (stub)
     │   │   │   └── InsertTab.cs                      # Insert tab (stub)
     │   │   └── Pane/
     │   │       ├── PaneBase.cs                       # Base for dockable panes
+    │   │       ├── CatalogPane.cs                    # Catalog pane (toolbox/folder tree)
     │   │       ├── ContentsPane.cs                   # Contents pane (layer list)
-    │   │       └── GeoprocessingPane.cs              # GP pane (tool search, run)
+    │   │       ├── GeoprocessingPane.cs              # GP pane (tool search, run)
+    │   │       └── GpToolDialog.cs                   # GP tool dialog (parameter map, set/get)
     │   └── Utilities/
     │       ├── ApplicationUtils.cs                   # Start/stop Pro, session mgmt
     │       ├── WinAppDriverUtils.cs                  # Start/stop WinAppDriver
     │       ├── WaitingUtils.cs                       # Retry-until-success patterns
-    │       └── ScreenCaptureUtils.cs                 # Screenshot capture
+    │       ├── ScreenCaptureUtils.cs                 # Screenshot capture
+    │       └── UiTreeInspector.cs                    # Accessibility tree dump (element discovery)
     │
     └── ServiceNow.Integration.Tests/                 # Test project
         ├── ServiceNow.Integration.Tests.csproj       # MSTest test project
         ├── TestEnvironment.cs                        # AssemblyInitialize/Cleanup
         ├── ServiceNowTestBase.cs                     # Team test base (Pro lifecycle)
-        └── Smoke/
-            └── ArcGisProLaunchTests.cs               # 3 smoke tests
+        ├── Smoke/
+        │   └── ArcGisProLaunchTests.cs               # 3 smoke tests
+        ├── Discovery/
+        │   ├── CatalogInspectionTests.cs             # Catalog/ribbon element tree dumps
+        │   ├── GpParameterAccessibilityTests.cs      # GP parameter accessibility analysis
+        │   └── GpParameterLocationTests.cs           # GpToolDialog parameter map verification
+        └── ILL/
+            └── IllToolboxCatalogTests.cs             # ILL toolbox presence + tool discovery
 ```
 
 ### Key files
@@ -280,10 +338,13 @@ sn-test-automation-poc/
 | File | Purpose |
 |---|---|
 | `ServiceNowTestClassBase.cs` | All tests inherit from this. Provides failure screenshots, trace logging, `[TestInitialize]`/`[TestCleanup]`. |
-| `ServiceNowTestBase.cs` | Team-specific base. Kills Pro before each test, provides `StartProWithProject()`, cleans up after. |
-| `TestEnvironment.cs` | Runs once per assembly. Starts WinAppDriver in `[AssemblyInitialize]`, stops it in `[AssemblyCleanup]`. |
+| `ServiceNowTestBase.cs` | Team-specific base. Starts/stops Pro per test via `StartProWithProject()`, disposes WinAppDriver sessions in cleanup. |
+| `TestEnvironment.cs` | Runs once per assembly. Starts WinAppDriver in `[AssemblyInitialize]`, polls `/status` for readiness, stops it in `[AssemblyCleanup]`. |
 | `ActiProBase.cs` | Root POM — finds the ArcGIS Pro main window from the WinAppDriver session. |
 | `Application.cs` | Wraps the running Pro instance. Entry point for all POM access. |
+| `CatalogPane.cs` | Catalog pane POM — tree navigation, toolbox expansion, tool discovery. |
+| `GpToolDialog.cs` | GP tool dialog POM — parameter map, set/get values (ComboBox, PasswordBox, CheckBox), run tool. |
+| `UiTreeInspector.cs` | Dumps accessibility tree for element discovery — used by Discovery tests. |
 | `test.runsettings` | Configurable parameters: Pro path, WinAppDriver URL, startup wait, timeouts. |
 | `AGENTS.md` | Comprehensive project conventions, architecture, coding standards, and CUIT alignment details. |
 
@@ -421,15 +482,14 @@ After each new test, generate a TestRail-ready summary for the team to copy into
 
 ---
 
-## Copilot Agent
+## Copilot Agents
 
-This project has a companion Copilot agent: **`servicenow-test-developer`**.
+This project includes custom Copilot agents for test development and execution:
 
-- **Location:** `~/.copilot/agents/servicenow-test-developer.agent.md` (local to each machine)
-- **Purpose:** Generates WinAppDriver test cases following this project's CUIT-aligned patterns
-- **Setup:** Manually copy the agent file from your Mac to `~/.copilot/agents/` on the Windows VM
+- **ServiceNow Test Developer** — Generates WinAppDriver test cases following CUIT-aligned patterns, creates POM classes, verifies compilation
+- **ServiceNow Test Runner** — Runs tests, diagnoses failures, reports results
 
-The agent runs environment diagnostics, reads existing code, creates POM classes, writes tests, and verifies compilation. See the agent file for full details.
+Agent behavior and project conventions are defined in `AGENTS.md`.
 
 ---
 
@@ -437,29 +497,26 @@ The agent runs environment diagnostics, reads existing code, creates POM classes
 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
-| `dotnet` not recognized | .NET SDK not installed | Install from [dotnet.microsoft.com/download](https://dotnet.microsoft.com/download) |
+| `dotnet` not recognized | .NET SDK not installed or not in PATH | Install from [dotnet.microsoft.com/download](https://dotnet.microsoft.com/download). If installed but not in PATH, use full path: `"C:\Program Files\dotnet\dotnet.exe"` |
 | `dotnet build` fails with missing packages | NuGet restore not run | Run `dotnet restore` first |
 | `dotnet build` fails with SDK version error | Wrong .NET SDK version | Install .NET 8 SDK |
 | Connection refused on 4723 | WinAppDriver not installed | Install WinAppDriver ([releases](https://github.com/Microsoft/WinAppDriver/releases)) |
 | "Developer Mode is not enabled" | Windows setting not toggled | Settings → For Developers → On |
 | ArcGIS Pro not found | Wrong exe path | Edit `test.runsettings` → `ArcGISProPath` parameter |
-| Tests compile but fail at runtime on Mac | Expected — WinAppDriver is Windows-only | Push code, run on Windows |
+| First test fails, rest pass | WinAppDriver cold-start timing | Already handled: `TestEnvironment` polls `/status` endpoint. If still failing, increase readiness timeout in `TestEnvironment.cs` |
+| Test host process crashed | WinAppDriver session leak | Already handled: `ServiceNowTestBase` calls `Driver.Quit()` in cleanup. If still crashing, check that all sessions are disposed |
 | Window title doesn't contain "ArcGIS Pro" | Sign-in/licensing dialog on first launch | Sign in to Pro manually once, close it, re-run tests |
-| Test timeout | ArcGIS Pro startup too slow | Increase `StartupWaitSeconds` in `test.runsettings` |
-| "Could not find ArcGIS Pro main window" | Pro crashed or didn't start | Check Pro install, run `dir` on the exe path, increase startup wait |
-| Tests pass locally but fail on different machine | Different Pro version or screen resolution | Verify Pro version matches, check element AutomationIds with Inspect.exe |
+| Test timeout | ArcGIS Pro startup too slow | Increase `StartupWaitSeconds` in `test.runsettings`. Discovery tests may need `[Timeout(600000)]` |
+| "Could not find ArcGIS Pro main window" | Pro crashed or didn't start | Check Pro install, verify exe path, increase startup wait |
+| Catalog tree expansion fails | .pyt toolbox parsing delay | POM uses click + ArrowRight with 3s wait; increase wait in `CatalogPane.cs` if needed |
+| GP tool search returns wrong results | Keyboard navigation timing | POM retries search up to 2 times with verification; increase retries in `GeoprocessingPane.cs` if needed |
 
 ---
 
 ## Next Steps
 
-> These are the planned work items to move from POC to production test coverage.
-
-- [ ] **Build on Windows** — Pull this repo on the Windows VM, run `dotnet build` and `dotnet test --filter TestCategory=Smoke` to validate the smoke tests
-- [ ] **First CDF test** — Create a test `.aprx` project with a CDF feature service configured, write `CdfFeatureLayerTests` in `CDF/`
-- [ ] **First ILL test** — Create a test `.aprx` project with the ILL toolbox, write `IllToolExecutionTests` in `ILL/`
-- [ ] **Discover AutomationIds** — Use Inspect.exe on Windows to discover element IDs for CDF/ILL-specific UI elements
-- [ ] **Expand POM** — Add `CatalogPane`, dialog classes, and view classes as tests require them
+- [ ] **First CDF test** — Create a test `.aprx` project with a CDF feature service, write `CdfFeatureLayerTests` in `CDF/`
+- [ ] **ILL execution test** — Run the ILL tool end-to-end (set parameters, click Run, verify output)
 - [ ] **Test data strategy** — Define `.aprx` project files and test data for repeatable CDF/ILL tests
 - [ ] **CI pipeline** — GitHub Actions on a Windows runner for automated test execution on PR
 - [ ] **TestRail automation** — API integration to auto-sync test cases and report results from TRX files

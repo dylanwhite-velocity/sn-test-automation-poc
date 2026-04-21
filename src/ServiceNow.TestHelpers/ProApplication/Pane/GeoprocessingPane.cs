@@ -70,6 +70,8 @@ public class GeoprocessingPane : PaneBase
 
     /// <summary>
     /// Searches for a geoprocessing tool by name in the search box.
+    /// Verifies the tool loaded after search and retries once if the keyboard
+    /// navigation didn't open the tool on the first attempt.
     /// </summary>
     /// <param name="toolName">The name of the tool to search for (e.g., "Indoor Location Loader").</param>
     public void SearchForTool(string toolName)
@@ -77,6 +79,29 @@ public class GeoprocessingPane : PaneBase
         if (PaneElement == null)
             throw new InvalidOperationException("Geoprocessing pane is not open.");
 
+        // Attempt search up to 2 times — keyboard navigation can miss on first try
+        for (int attempt = 1; attempt <= 2; attempt++)
+        {
+            PerformToolSearch(toolName);
+
+            // Verify the tool actually opened (Run button present)
+            if (DidToolLoad()) return;
+
+            if (attempt < 2)
+            {
+                System.Diagnostics.Trace.WriteLine(
+                    $"[GeoprocessingPane] Tool '{toolName}' did not load on attempt {attempt}, retrying...");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Performs a single tool search attempt: types the tool name, submits,
+    /// and uses keyboard navigation to open the first result.
+    /// </summary>
+    /// <param name="toolName">The name of the tool to search for.</param>
+    private void PerformToolSearch(string toolName)
+    {
         // The GP pane search box has AutomationId "search_ctrl" (discovered via dump).
         // The Catalog pane has a separate "searchTextBox" — they use different IDs.
         var searchBox = WaitingUtils.RetryAssignmentUntilSuccess(
@@ -84,7 +109,7 @@ public class GeoprocessingPane : PaneBase
             {
                 try
                 {
-                    return PaneElement.FindElementByAccessibilityId("search_ctrl");
+                    return PaneElement!.FindElementByAccessibilityId("search_ctrl");
                 }
                 catch
                 {

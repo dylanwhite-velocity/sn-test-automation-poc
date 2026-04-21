@@ -30,7 +30,7 @@ public class CatalogInspectionTests : ServiceNowTestBase
     /// This should be a project that has toolboxes and folder connections configured.
     /// </summary>
     private const string InspectionProjectPath =
-        @"C:\Users\dyl13740\Documents\ArcGIS\Projects\MyProject\MyProject.aprx";
+        @"C:\Users\dyl13740\Documents\ArcGIS\Projects\ServiceNowIntegrationProject\ServiceNowIntegrationProject.aprx";
 
     /// <summary>
     /// Dumps the top-level UI element tree of the ArcGIS Pro main window.
@@ -190,6 +190,7 @@ public class CatalogInspectionTests : ServiceNowTestBase
     /// </summary>
     [TestMethod]
     [TestCategory("Discovery")]
+    [Timeout(600000)]
     [Description("Diagnostic: trace Catalog navigation to ILL tool, dump UI state at each step")]
     public void DiagnoseCatalogToolNavigation()
     {
@@ -299,7 +300,14 @@ public class CatalogInspectionTests : ServiceNowTestBase
             }
 
             // Dismiss context menu
-            toolElement.SendKeys(OpenQA.Selenium.Keys.Escape);
+            try
+            {
+                toolElement.SendKeys(OpenQA.Selenium.Keys.Escape);
+            }
+            catch (Exception ex)
+            {
+                TestContext?.WriteLine($"  SendKeys(Escape) failed (element may not be interactable): {ex.Message}");
+            }
             WaitingUtils.Wait(1000);
 
             // Step 5b: Try double-click as before
@@ -307,7 +315,17 @@ public class CatalogInspectionTests : ServiceNowTestBase
             actions = new OpenQA.Selenium.Interactions.Actions(app.WinAppDriver);
             actions.DoubleClick(toolElement).Perform();
             WaitingUtils.Wait(2000);
-            toolElement.SendKeys(OpenQA.Selenium.Keys.Enter);
+            try
+            {
+                toolElement.SendKeys(OpenQA.Selenium.Keys.Enter);
+            }
+            catch (Exception ex)
+            {
+                TestContext?.WriteLine($"  SendKeys(Enter) failed (element may not be interactable after double-click): {ex.Message}");
+                // Use Actions API as fallback for sending Enter to focused element
+                var enterAction = new OpenQA.Selenium.Interactions.Actions(app.WinAppDriver);
+                enterAction.SendKeys(OpenQA.Selenium.Keys.Return).Perform();
+            }
             WaitingUtils.Wait(10000);
 
             // Dump tree after double-click

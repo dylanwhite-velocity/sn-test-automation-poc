@@ -33,7 +33,7 @@ public class GpParameterAccessibilityTests : ServiceNowTestBase
     /// Path to an ArcGIS Pro project that has the ILL toolbox registered.
     /// </summary>
     private const string TestProjectPath =
-        @"C:\Users\dyl13740\Documents\ArcGIS\Projects\MyProject\MyProject.aprx";
+        @"C:\Users\dyl13740\Documents\ArcGIS\Projects\ServiceNowIntegrationProject\ServiceNowIntegrationProject.aprx";
 
     /// <summary>
     /// Display name of the ILL tool as shown in the GP pane search results.

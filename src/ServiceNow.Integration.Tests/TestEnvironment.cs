@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ServiceNow.TestHelpers.Utilities;
+using System.Net;
 
 namespace ServiceNow.Integration.Tests;
 
@@ -20,9 +21,12 @@ namespace ServiceNow.Integration.Tests;
 [TestClass]
 public class TestEnvironment
 {
+    /// <summary>Maximum time to wait for WinAppDriver to become responsive.</summary>
+    private const int WadReadinessTimeoutMs = 15000;
+
     /// <summary>
-    /// Runs once before any test in the assembly. Starts WinAppDriver and
-    /// performs any one-time environment configuration.
+    /// Runs once before any test in the assembly. Starts WinAppDriver, verifies
+    /// it is accepting connections, and performs any one-time environment configuration.
     /// </summary>
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext testContext)
@@ -34,6 +38,15 @@ public class TestEnvironment
         testContext.WriteLine(wadStarted
             ? "WinAppDriver started successfully."
             : "WARNING: WinAppDriver did not start. Tests requiring WAD will fail.");
+
+        // Verify WinAppDriver is accepting connections before running tests
+        if (wadStarted)
+        {
+            var wadReady = WaitForWinAppDriverReady(testContext);
+            testContext.WriteLine(wadReady
+                ? "WinAppDriver is accepting connections."
+                : "WARNING: WinAppDriver readiness check timed out. First test may fail.");
+        }
 
         testContext.WriteLine($"Machine: {Environment.MachineName}");
         testContext.WriteLine($"OS: {Environment.OSVersion}");
@@ -52,5 +65,33 @@ public class TestEnvironment
 
         // Stop WinAppDriver
         WinAppDriverUtils.CloseWinAppDriver();
+    }
+
+    /// <summary>
+    /// Polls the WinAppDriver <c>/status</c> endpoint until it responds,
+    /// confirming the server is ready to accept session requests.
+    /// </summary>
+    /// <param name="testContext">Test context for logging.</param>
+    /// <returns><c>true</c> if WinAppDriver responded within the timeout.</returns>
+    private static bool WaitForWinAppDriverReady(TestContext testContext)
+    {
+        var statusUrl = $"{ApplicationUtils.DefaultWinAppDriverUrl}/status";
+
+        return WaitingUtils.RetryUntilSuccessOrTimeout(
+            () =>
+            {
+                try
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                    var response = client.GetAsync(statusUrl).GetAwaiter().GetResult();
+                    return response.IsSuccessStatusCode;
+                }
+                catch
+                {
+                    return false;
+                }
+            },
+            timeoutMs: WadReadinessTimeoutMs,
+            delayBetweenAttemptsMs: 1000);
     }
 }

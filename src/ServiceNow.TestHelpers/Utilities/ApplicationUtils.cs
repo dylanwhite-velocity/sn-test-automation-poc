@@ -19,8 +19,16 @@ public static class ApplicationUtils
     /// <summary>Default implicit wait timeout in milliseconds.</summary>
     public const int ImplicitWaitTimeoutMs = 20000;
 
+    /// <summary>Maximum number of retry attempts for WinAppDriver session creation.</summary>
+    private const int MaxSessionRetries = 3;
+
+    /// <summary>Delay in milliseconds between session creation retries.</summary>
+    private const int SessionRetryDelayMs = 5000;
+
     /// <summary>
     /// Starts ArcGIS Pro via WinAppDriver and returns a <see cref="WindowsDriver{AppiumWebElement}"/> session.
+    /// Retries session creation up to <see cref="MaxSessionRetries"/> times to handle
+    /// transient WinAppDriver startup timing issues.
     /// </summary>
     /// <param name="proExePath">Full path to ArcGISPro.exe.</param>
     /// <param name="winAppDriverUrl">WinAppDriver endpoint URL.</param>
@@ -41,13 +49,35 @@ public static class ApplicationUtils
             appCapabilities.AddAdditionalCapability("appArguments", commandLineArgs);
         }
 
-        var driver = new WindowsDriver<AppiumWebElement>(
-            new Uri(winAppDriverUrl),
-            appCapabilities,
-            TimeSpan.FromSeconds(120));
+        Exception? lastException = null;
 
-        driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromMilliseconds(ImplicitWaitTimeoutMs);
-        return driver;
+        for (int attempt = 1; attempt <= MaxSessionRetries; attempt++)
+        {
+            try
+            {
+                var driver = new WindowsDriver<AppiumWebElement>(
+                    new Uri(winAppDriverUrl),
+                    appCapabilities,
+                    TimeSpan.FromSeconds(120));
+
+                driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromMilliseconds(ImplicitWaitTimeoutMs);
+                return driver;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                Trace.WriteLine($"[ApplicationUtils] Session creation attempt {attempt}/{MaxSessionRetries} failed: {ex.Message}");
+
+                if (attempt < MaxSessionRetries)
+                {
+                    Thread.Sleep(SessionRetryDelayMs);
+                }
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Failed to create WinAppDriver session after {MaxSessionRetries} attempts.",
+            lastException);
     }
 
     /// <summary>
@@ -73,6 +103,7 @@ public static class ApplicationUtils
 
     /// <summary>
     /// Gets an existing desktop session and attaches to a running ArcGIS Pro instance.
+    /// The intermediate root session used to locate the Pro window is disposed before returning.
     /// </summary>
     /// <param name="winAppDriverUrl">WinAppDriver endpoint URL.</param>
     /// <returns>A WinAppDriver session attached to the Pro main window.</returns>
@@ -81,24 +112,32 @@ public static class ApplicationUtils
     {
         var rootSession = GetRootSession(winAppDriverUrl);
 
-        var proWindow = WaitingUtils.RetryAssignmentUntilSuccess(
-            () => rootSession.FindElementByAccessibilityId(ActiProBase.MainWindowAutomationId),
-            timeoutMs: 30000,
-            debugInfo: "GetExistingDesktopSession — looking for Pro main window");
+        try
+        {
+            var proWindow = WaitingUtils.RetryAssignmentUntilSuccess(
+                () => rootSession.FindElementByAccessibilityId(ActiProBase.MainWindowAutomationId),
+                timeoutMs: 30000,
+                debugInfo: "GetExistingDesktopSession — looking for Pro main window");
 
-        if (proWindow == null)
-            throw new InvalidOperationException("ArcGIS Pro main window not found.");
+            if (proWindow == null)
+                throw new InvalidOperationException("ArcGIS Pro main window not found.");
 
-        var proWindowHandle = proWindow.GetAttribute("NativeWindowHandle");
-        var hexHandle = int.Parse(proWindowHandle).ToString("x");
+            var proWindowHandle = proWindow.GetAttribute("NativeWindowHandle");
+            var hexHandle = int.Parse(proWindowHandle).ToString("x");
 
-        var appCapabilities = new AppiumOptions();
-        appCapabilities.AddAdditionalCapability("appTopLevelWindow", hexHandle);
-        appCapabilities.AddAdditionalCapability("deviceName", "WindowsPC");
+            var appCapabilities = new AppiumOptions();
+            appCapabilities.AddAdditionalCapability("appTopLevelWindow", hexHandle);
+            appCapabilities.AddAdditionalCapability("deviceName", "WindowsPC");
 
-        return new WindowsDriver<AppiumWebElement>(
-            new Uri(winAppDriverUrl),
-            appCapabilities);
+            return new WindowsDriver<AppiumWebElement>(
+                new Uri(winAppDriverUrl),
+                appCapabilities);
+        }
+        finally
+        {
+            // Dispose the root session to prevent session leaks
+            try { rootSession.Quit(); } catch { /* best effort */ }
+        }
     }
 
     /// <summary>

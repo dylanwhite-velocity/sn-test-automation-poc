@@ -69,23 +69,44 @@ public class ServiceNowTestBase : ServiceNowTestClassBase
     }
 
     /// <summary>
-    /// Runs after each test. Closes ArcGIS Pro if still running.
+    /// Runs after each test. Disposes the WinAppDriver session, closes ArcGIS Pro,
+    /// and releases all resources. Each step is wrapped independently so a failure
+    /// in one does not skip the others.
     /// </summary>
     [TestCleanup]
     public void ServiceNowTestCleanup()
     {
+        // 1. Close Pro via the application POM (graceful close)
         try
         {
             Application?.CloseApplication();
         }
         catch
         {
-            // Best effort
+            // Best effort — Pro may already be closed
         }
 
-        if (ApplicationUtils.GetArcGISProCount() > 0)
+        // 2. Quit the WinAppDriver session to release resources
+        try
         {
-            ApplicationUtils.KillArcGISProProcess();
+            Driver?.Quit();
+        }
+        catch
+        {
+            // Best effort — session may already be invalid
+        }
+
+        // 3. Force-kill any remaining Pro processes
+        try
+        {
+            if (ApplicationUtils.GetArcGISProCount() > 0)
+            {
+                ApplicationUtils.KillArcGISProProcess();
+            }
+        }
+        catch
+        {
+            // Best effort
         }
 
         Driver = null;

@@ -25,7 +25,7 @@ public class GpParameterLocationTests : ServiceNowTestBase
 
     /// <summary>Path to an ArcGIS Pro project with the ILL toolbox registered.</summary>
     private const string TestProjectPath =
-        @"C:\Users\dyl13740\Documents\ArcGIS\Projects\MyProject\MyProject.aprx";
+        @"C:\Users\dyl13740\Documents\ArcGIS\Projects\ServiceNowIntegrationProject\ServiceNowIntegrationProject.aprx";
 
     /// <summary>Display name of the ILL tool in GP pane search results.</summary>
     private const string IllToolName = "Indoors Location Loader";
