@@ -371,9 +371,21 @@ To share with non-technical stakeholders: open the `.md` file in VS Code preview
 ## Branching Strategy
 
 ```
-main                              # Stable, reviewed tests
-└── feature/<story-id>-desc       # Feature branches per story/task
+main                                              # Stable, reviewed tests
+└── <username>-<issue_number>-<short-description>   # Work tied to a GitHub issue
 ```
+
+Use `<username>-<issue_number>-<short-description>` for new branches, for example
+`dyl13740-42-add-login-test`.
+
+- `<username>` is the per-user branch prefix configured in GitHub Copilot desktop settings for this repository, not necessarily the GitHub login. For this user, configure the prefix as `dyl13740-`.
+- `<issue_number>` is the GitHub issue number. Put any additional story ID in the short-description segment.
+- `<short-description>` describes the change using lowercase, hyphen-separated words.
+- When there is no GitHub issue, use `<username>-<short-description>`.
+
+Agents must preserve the app-generated `<username>-` prefix rather than replacing it
+with `feature/`, `fix/`, or another prefix. Do not rename existing branches to apply
+this convention retroactively.
 
 PR titles follow: `(feat|fix|cicd|chore)/<issue-number>-short-description`
 
